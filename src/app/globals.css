@@ -1,26 +1,82 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* New UI-UX-Pro-Max Theme Colors */
+  --color-primary: #7C3AED;
+  --color-on-primary: #FFFFFF;
+  --color-secondary: #A78BFA;
+  --color-on-secondary: #0F172A;
+  --color-accent: #EA580C;
+  --color-on-accent: #000000;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #4C1D95;
+  --color-muted: #ECEEF9;
+  --color-muted-foreground: #475569;
+  --color-border: #DDD6FE;
+  --color-destructive: #DC2626;
+  --color-on-destructive: #FFFFFF;
+  --color-ring: #7C3AED;
+
+  /* Legacy JinGa Colors */
+  --color-jinga-sky: #0284C7;
+  --color-jinga-sky-light: #E0F2FE;
+  --color-jinga-gold: #F59E0B;
+  --color-jinga-gold-dark: #D97706;
+  --color-jinga-green: #10B981;
+  --color-jinga-green-dark: #047857;
+  --color-jinga-coral: #EF4444;
+  --color-jinga-parchment: #FEF3C7;
+  --color-jinga-navy: #0F172A;
+
+  /* Legacy Animations */
+  --animate-float-slow: float 6s ease-in-out infinite;
+  --animate-float-delayed: float 7s ease-in-out 2s infinite;
+  --animate-pulse-glow: pulseGlow 2s infinite;
+  --animate-wiggle: wiggle 1s ease-in-out infinite;
+  --animate-cloud-drift: cloudDrift 40s linear infinite;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-12px); }
+  }
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.85; transform: scale(1.03); }
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(-3deg); }
+    50% { transform: rotate(3deg); }
+  }
+  @keyframes cloudDrift {
+    0% { transform: translateX(-10%); }
+    100% { transform: translateX(110%); }
+  }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --background: #FAF5FF;
+  --foreground: #4C1D95;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Custom Legacy Classes */
+.font-bubbly {
+  font-family: 'Fredoka', cursive, sans-serif;
+}
+.bunting-banner {
+  background-image: repeating-linear-gradient(45deg, #EF4444 0, #EF4444 15px, #F59E0B 15px, #F59E0B 30px, #10B981 30px, #10B981 45px, #0284C7 45px, #0284C7 60px);
+  height: 8px;
+}
+.treasure-map-bg {
+  background-color: #FFFDF7;
+  background-image: radial-gradient(#FDE68A 0.75px, transparent 0.75px), radial-gradient(#FDE68A 0.75px, #FFFDF7 0.75px);
+  background-size: 30px 30px;
+  background-position: 0 0, 15px 15px;
+}
+.hero-gradient {
+  background: linear-gradient(180deg, #38BDF8 0%, #0284C7 60%, #0369A1 100%);
 }
