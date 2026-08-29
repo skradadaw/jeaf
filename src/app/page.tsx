@@ -1,5 +1,68 @@
+'use client';
+import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
 
 export default function Home() {
+  const [activeFilter, setActiveFilter] = useState('Semua');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [participantCounts, setParticipantCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const { data, error } = await supabase
+        .from('pendaftar')
+        .select('cabang_lomba');
+      
+      if (!error && data) {
+        const counts: Record<string, number> = {};
+        data.forEach((pendaftar) => {
+          const lomba = pendaftar.cabang_lomba;
+          counts[lomba] = (counts[lomba] || 0) + 1;
+        });
+        setParticipantCounts(counts);
+      }
+    };
+
+    fetchCounts();
+
+    const channel = supabase
+      .channel('public:pendaftar')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'pendaftar'
+        },
+        (payload) => {
+          const newLomba = payload.new.cabang_lomba;
+          setParticipantCounts(prev => ({
+            ...prev,
+            [newLomba]: (prev[newLomba] || 0) + 1
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const lombaList = [
+    { id: 1, title: 'Lomba MHQ', category: 'islami', icon: '📖', target: 'TK A & B', desc: 'Uji hafalan surah-surah pendek pilihan dengan tartil, makhraj yang benar, dan adab tilawah.', quota: 60, price: 'Gratis', dbValue: 'MHQ', classes: { border: 'border-emerald-200', tagBg: 'bg-emerald-100', tagText: 'text-emerald-800', priceText: 'text-emerald-600', btnBg: 'bg-emerald-50', btnHover: 'hover:bg-emerald-600', btnText: 'text-emerald-700' } },
+    { id: 2, title: 'Lomba Karya Kolase', category: 'seni', icon: '✂️', target: 'TK A & B', desc: 'Berkreasi membuat seni kolase yang indah untuk melatih kreativitas dan motorik halus.', quota: 60, price: 'Gratis', dbValue: 'Kolase', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
+    { id: 3, title: 'Lomba Mewarnai', category: 'seni', icon: '🎨', target: 'TK A & B', desc: 'Mengekspresikan imajinasi dan gradasi warna ceria pada sketsa petualang cilik JinGa.', quota: 130, price: 'Gratis', dbValue: 'Mewarnai', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
+    { id: 4, title: 'Lomba Menyanyi Solo', category: 'seni', icon: '🎵', target: 'TK A & B', desc: 'Menumbuhkan keberanian dan bakat tarik suara anak dengan lagu-lagu anak ceria.', quota: 60, price: 'Gratis', dbValue: 'Menyanyi', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
+    { id: 5, title: 'Lomba Fashion Show', category: 'seni', icon: '👗', target: 'Putra & Putri', desc: 'Peragaan busana muslim/muslimah cilik bertema "Little Explorer" yang syar\'i, anggun, dan percaya diri.', quota: 60, price: 'Gratis', dbValue: 'Fashion', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
+    { id: 6, title: 'Lomba Adzan', category: 'islami', icon: '🗣️', target: 'Khusus Ikhwan', desc: 'Melantunkan panggilan adzan Subuh/Dzuhur dengan kemerduan nada, kejelasan makhraj, dan adab muadzin.', quota: 60, price: 'Gratis', dbValue: 'Adzan', classes: { border: 'border-emerald-200', tagBg: 'bg-emerald-100', tagText: 'text-emerald-800', priceText: 'text-emerald-600', btnBg: 'bg-emerald-50', btnHover: 'hover:bg-emerald-600', btnText: 'text-emerald-700' } },
+    { id: 7, title: 'Lomba Tendangan Penalti', category: 'ketangkasan', icon: '⚽', target: 'Ketangkasan', desc: 'Tantangan ketepatan menendang bola ke gawang untuk melatih fokus dan motorik anak.', quota: 70, price: 'Gratis', dbValue: 'Penalti', classes: { border: 'border-sky-200', tagBg: 'bg-sky-100', tagText: 'text-sky-800', priceText: 'text-sky-600', btnBg: 'bg-sky-50', btnHover: 'hover:bg-sky-600', btnText: 'text-sky-700' } },
+  ];
+
+  const filteredLomba = lombaList.filter(lomba => activeFilter === 'Semua' || lomba.category === activeFilter);
+
   return (
     <div className="bg-[#F8FAFC] font-sans overflow-x-hidden">
       
@@ -28,39 +91,88 @@ export default function Home() {
 
                 
                 <div className="hidden md:flex items-center space-x-6 text-sm font-semibold text-slate-600">
-                    <a href="#tentang" className="hover:text-sky-600 transition-colors">Tentang Acara</a>
                     <a href="#lomba" className="hover:text-sky-600 transition-colors">Cabang Lomba</a>
                     <a href="#hadiah" className="hover:text-sky-600 transition-colors">Hadiah & Trofi</a>
                     <a href="#rundown" className="hover:text-sky-600 transition-colors">Peta Rute</a>
                     <a href="#faq" className="hover:text-sky-600 transition-colors">FAQ</a>
+                    <Link href="/panitia/login" className="hover:text-amber-500 transition-colors flex items-center gap-1.5 border-l border-slate-200 pl-6">
+                        <i className="fa-solid fa-lock text-xs"></i>
+                        Login Panitia
+                    </Link>
                 </div>
 
                 
                 <div className="flex items-center gap-3">
-                    <a href="#daftar" className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-sm shadow-md hover:shadow-lg hover:from-amber-400 hover:to-amber-500 hover:scale-105 active:scale-95 transition-all">
+                    <Link href="/daftar" className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-sm shadow-md hover:shadow-lg hover:from-amber-400 hover:to-amber-500 hover:scale-105 active:scale-95 transition-all">
                         <i className="fa-solid fa-compass animate-spin text-amber-200" style={{ animationDuration: '6s' }}></i>
                         <span>Daftar Sekarang</span>
-                    </a>
+                    </Link>
                     
                     
-                    <button id="mobileMenuBtn" className="md:hidden p-2 rounded-xl text-slate-600 hover:bg-sky-50 focus:outline-none" aria-label="Buka Menu">
-                        <i className="fa-solid fa-bars text-2xl" id="menuIcon"></i>
+                    <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden p-2 rounded-xl text-slate-600 hover:bg-sky-50 focus:outline-none" aria-label="Buka Menu">
+                        <i className={`fa-solid ${isMobileMenuOpen ? 'fa-xmark' : 'fa-bars'} text-2xl`}></i>
                     </button>
                 </div>
             </div>
         </div>
 
         
-        <div id="mobileMenu" className="hidden md:hidden bg-white border-b border-sky-100 px-4 pt-2 pb-6 space-y-3 shadow-xl">
-            <a href="#tentang" className="block py-2 text-slate-700 font-semibold hover:text-sky-600 mobile-link">Tentang Acara</a>
-            <a href="#lomba" className="block py-2 text-slate-700 font-semibold hover:text-sky-600 mobile-link">Cabang Lomba (8 Kategori)</a>
-            <a href="#hadiah" className="block py-2 text-slate-700 font-semibold hover:text-sky-600 mobile-link">Peti Hadiah & Trofi</a>
-            <a href="#rundown" className="block py-2 text-slate-700 font-semibold hover:text-sky-600 mobile-link">Peta Jadwal Acara</a>
-            <a href="#lokasi" className="block py-2 text-slate-700 font-semibold hover:text-sky-600 mobile-link">Lokasi Sekolah</a>
-            <a href="#faq" className="block py-2 text-slate-700 font-semibold hover:text-sky-600 mobile-link">Tanya Jawab (FAQ)</a>
-            <div className="pt-2">
-                <a href="#daftar" className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 text-white font-bold text-center shadow mobile-link">
-                    <i className="fa-solid fa-flag-checkered"></i> Daftar Petualangan Sekarang
+        <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} md:hidden bg-white shadow-xl pb-6 border-b border-sky-100 animate-in slide-in-from-top-2 duration-200`}>
+            <div className="flex flex-col px-2 pt-2 pb-4 space-y-1">
+                <a href="#lomba" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-between px-4 py-3.5 rounded-2xl text-slate-700 font-semibold active:bg-sky-50 transition-colors">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shadow-inner"><i className="fa-solid fa-trophy text-sm"></i></div>
+                        <span className="text-[15px]">Cabang Lomba</span>
+                    </div>
+                    <i className="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+                </a>
+                
+                <a href="#hadiah" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-between px-4 py-3.5 rounded-2xl text-slate-700 font-semibold active:bg-sky-50 transition-colors">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-inner"><i className="fa-solid fa-gift text-sm"></i></div>
+                        <span className="text-[15px]">Hadiah & Trofi</span>
+                    </div>
+                    <i className="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+                </a>
+
+                <a href="#rundown" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-between px-4 py-3.5 rounded-2xl text-slate-700 font-semibold active:bg-sky-50 transition-colors">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-9 h-9 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center shadow-inner"><i className="fa-regular fa-calendar-days text-sm"></i></div>
+                        <span className="text-[15px]">Jadwal Acara</span>
+                    </div>
+                    <i className="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+                </a>
+
+                <a href="#lokasi" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-between px-4 py-3.5 rounded-2xl text-slate-700 font-semibold active:bg-sky-50 transition-colors">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-9 h-9 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shadow-inner"><i className="fa-solid fa-location-dot text-sm"></i></div>
+                        <span className="text-[15px]">Lokasi Sekolah</span>
+                    </div>
+                    <i className="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+                </a>
+
+                <a href="#faq" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-between px-4 py-3.5 rounded-2xl text-slate-700 font-semibold active:bg-sky-50 transition-colors">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shadow-inner"><i className="fa-regular fa-circle-question text-sm"></i></div>
+                        <span className="text-[15px]">Tanya Jawab (FAQ)</span>
+                    </div>
+                    <i className="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+                </a>
+
+                <div className="h-px bg-slate-100 my-2 mx-4"></div>
+
+                <Link href="/panitia/login" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-between px-4 py-3.5 rounded-2xl text-slate-600 font-semibold active:bg-slate-50 transition-colors">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shadow-inner"><i className="fa-solid fa-lock text-sm"></i></div>
+                        <span className="text-[15px]">Login Panitia</span>
+                    </div>
+                    <i className="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+                </Link>
+            </div>
+
+            <div className="px-5 pt-2">
+                <a href="#daftar" onClick={() => setIsMobileMenuOpen(false)} className="w-full flex items-center justify-center gap-2 py-4 rounded-[1.25rem] bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 font-extrabold text-base shadow-lg shadow-amber-500/30 active:scale-95 transition-transform">
+                    <i className="fa-solid fa-flag-checkered"></i> Daftar Sekarang!
                 </a>
             </div>
         </div>
@@ -86,7 +198,6 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
                 
-                
                 <div className="lg:col-span-7 text-center lg:text-left space-y-6">
                     
                     
@@ -98,12 +209,12 @@ export default function Home() {
 
                     
                     <div className="space-y-2">
-                        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold font-bubbly leading-tight tracking-tight text-white drop-shadow-md">
+                        <h1 className="text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-extrabold font-bubbly leading-tight tracking-tight text-white drop-shadow-md">
                             JinGa <span className="text-amber-300">EXPLORERS</span><br />
                             Academy Festival <span className="text-amber-300">2026</span>
                         </h1>
                         <p className="text-lg sm:text-xl font-medium text-sky-100 max-w-2xl mx-auto lg:mx-0">
-                            🌟 <strong>Festival Akademik, Kreatif & Islami</strong> Terakbar untuk Siswa-Siswi <strong>TK & RA Se-Derajat</strong>. Berani Berpetualang, Raih Prestasi & Bentuk Karakter Sholeh!
+                            🌟 <strong>Festival Akademik, Kreatif & Islami</strong> Terakbar untuk Siswa-Siswi <strong>TK & RA Se-Kabupaten Purwakarta</strong>. Berani Berpetualang, Raih Prestasi & Bentuk Karakter Sholeh! <br className="hidden sm:block" /><span className="inline-block mt-3 px-4 py-1.5 bg-amber-400 text-slate-900 rounded-full font-bold text-sm shadow-[0_0_15px_rgba(251,191,36,0.6)] animate-pulse border border-amber-300">✨ Pendaftaran 100% Gratis! ✨</span>
                         </p>
                     </div>
 
@@ -150,13 +261,13 @@ export default function Home() {
 
                     
                     <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
-                        <a href="#daftar" className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:scale-105 hover:from-amber-300 hover:to-amber-400 transition-all flex items-center justify-center gap-3">
+                        <Link href="/daftar" className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:scale-105 hover:from-amber-300 hover:to-amber-400 transition-all flex items-center justify-center gap-3">
                             <i className="fa-solid fa-map-location-dot text-lg text-slate-900"></i>
                             <span>Daftar Peserta Cilik</span>
-                        </a>
+                        </Link>
                         <a href="#lomba" className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/30 text-white font-bold text-base transition-all flex items-center justify-center gap-2">
                             <i className="fa-solid fa-trophy text-amber-300"></i>
-                            <span>Lihat 8 Cabang Lomba</span>
+                            <span>Lihat 7 Cabang Lomba</span>
                         </a>
                     </div>
 
@@ -167,7 +278,7 @@ export default function Home() {
                             <p className="text-[11px] sm:text-xs text-sky-100 font-medium">Target Peserta TK/RA</p>
                         </div>
                         <div>
-                            <p className="text-xl sm:text-2xl font-bold font-bubbly text-amber-300">8 Lomba</p>
+                            <p className="text-xl sm:text-2xl font-bold font-bubbly text-amber-300">7 Lomba</p>
                             <p className="text-[11px] sm:text-xs text-sky-100 font-medium">Islami, Seni & Ketangkasan</p>
                         </div>
                         <div>
@@ -180,7 +291,7 @@ export default function Home() {
 
                 
                 <div className="lg:col-span-5 relative">
-                    <div className="relative mx-auto max-w-md group">
+                    <div className="relative mx-auto w-full group">
                         
                         
                         <div className="absolute -inset-2 bg-gradient-to-r from-amber-400 via-emerald-400 to-sky-400 rounded-3xl blur-xl opacity-70 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-tilt"></div>
@@ -219,74 +330,6 @@ export default function Home() {
         </div>
     </section>
 
-    
-    <section id="tentang" className="py-16 sm:py-24 bg-slate-50 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            
-            <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-                <span className="inline-block px-4 py-1 rounded-full bg-sky-100 text-sky-700 text-xs font-extrabold tracking-wider uppercase">
-                    🗺️ Menjelajah Bersama JinGa
-                </span>
-                <h2 className="text-3xl sm:text-4xl font-extrabold font-bubbly text-slate-900">
-                    Bukan Sekadar Lomba Biasa, Ini Adalah <span className="text-sky-600">Ekspedisi Karakter Cilik!</span>
-                </h2>
-                <p className="text-slate-600 text-base sm:text-lg leading-relaxed">
-                    <strong>JinGa Explorers Academy Festival 2026</strong> dirancang khusus dengan pendekatan psikologi anak usia dini (TK A & TK B) yang menyenangkan, edukatif, dan bernafaskan nilai-nilai Islam yang ramah serta menginspirasi.
-                </p>
-            </div>
-
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                
-                
-                <div className="bg-white p-8 rounded-3xl border-2 border-sky-100 shadow-bubbly card-3d-hover relative overflow-hidden group">
-                    <div className="w-16 h-16 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">
-                        <i className="fa-solid fa-graduation-cap"></i>
-                    </div>
-                    <span className="text-xs font-extrabold uppercase px-2.5 py-1 bg-sky-50 text-sky-600 rounded-lg">Pilar 01</span>
-                    <h3 className="text-2xl font-bold font-bubbly text-slate-900 mt-2 mb-3">Jelajah Ilmu</h3>
-                    <p className="text-slate-600 text-sm leading-relaxed">
-                        Mengasah daya pikir kritis, wawasan sains cilik, kecintaan membaca Al-Qur&apos;an, dan kemampuan berani berbicara di hadapan umum sejak usia dini.
-                    </p>
-                    <div className="mt-6 pt-4 border-t border-slate-100 flex items-center text-xs font-bold text-sky-600 gap-1.5">
-                        <i className="fa-solid fa-circle-check"></i> Tahfidz, Pildacil & Sains
-                    </div>
-                </div>
-
-                
-                <div className="bg-white p-8 rounded-3xl border-2 border-amber-100 shadow-bubbly card-3d-hover relative overflow-hidden group">
-                    <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">
-                        <i className="fa-solid fa-hands-holding-heart"></i>
-                    </div>
-                    <span className="text-xs font-extrabold uppercase px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg">Pilar 02</span>
-                    <h3 className="text-2xl font-bold font-bubbly text-slate-900 mt-2 mb-3">Jelajah Amal</h3>
-                    <p className="text-slate-600 text-sm leading-relaxed">
-                        Mendorong kreativitas karya seni, kemandirian anak, sportivitas, serta kemampuan motorik halus dan kasar lewat arena ketangkasan seru.
-                    </p>
-                    <div className="mt-6 pt-4 border-t border-slate-100 flex items-center text-xs font-bold text-amber-600 gap-1.5">
-                        <i className="fa-solid fa-circle-check"></i> Mewarnai, Kreasi & Halang Rintang
-                    </div>
-                </div>
-
-                
-                <div className="bg-white p-8 rounded-3xl border-2 border-emerald-100 shadow-bubbly card-3d-hover relative overflow-hidden group">
-                    <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">
-                        <i className="fa-solid fa-star-and-crescent"></i>
-                    </div>
-                    <span className="text-xs font-extrabold uppercase px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg">Pilar 03</span>
-                    <h3 className="text-2xl font-bold font-bubbly text-slate-900 mt-2 mb-3">Jelajah Akhlak</h3>
-                    <p className="text-slate-600 text-sm leading-relaxed">
-                        Menanamkan adab islami, rasa percaya diri, busana sopan syar&apos;i yang anggun, serta cinta kepada Allah SWT dan Rasulullah SAW.
-                    </p>
-                    <div className="mt-6 pt-4 border-t border-slate-100 flex items-center text-xs font-bold text-emerald-600 gap-1.5">
-                        <i className="fa-solid fa-circle-check"></i> Adzan, Doa & Fashion Show Muslim
-                    </div>
-                </div>
-
-            </div>
-
-        </div>
-    </section>
 
     
     <section id="lomba" className="py-16 sm:py-24 bg-white relative treasure-map-bg">
@@ -294,7 +337,7 @@ export default function Home() {
             
             <div className="text-center max-w-3xl mx-auto space-y-4 mb-12">
                 <span className="inline-block px-4 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-extrabold tracking-wider uppercase">
-                    🏆 8 Zona Lomba Penjelajah Cilik
+                    🏆 7 Zona Lomba Penjelajah Cilik
                 </span>
                 <h2 className="text-3xl sm:text-5xl font-extrabold font-bubbly text-slate-900">
                     Pilih Petualangan <span className="text-amber-500">Terbaik Si Kecil!</span>
@@ -304,209 +347,81 @@ export default function Home() {
                 </p>
 
                 
-                <div className="flex flex-wrap items-center justify-center gap-2 pt-4" id="lombaFilterContainer">
-                    <button  className="filter-btn active px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold bg-sky-600 text-white shadow-md transition-all">
-                        Semua Lomba (8)
+                <div className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-3 pt-4" id="lombaFilterContainer">
+                    <button onClick={() => setActiveFilter('Semua')} className={`w-full max-w-xs sm:w-auto filter-btn px-5 py-2.5 rounded-full text-sm font-bold shadow-sm transition-all border-2 ${activeFilter === 'Semua' ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-slate-700 hover:bg-sky-50 border-slate-200 hover:border-sky-300'}`}>
+                        Semua Lomba (7)
                     </button>
-                    <button  className="filter-btn px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold bg-white text-slate-700 hover:bg-sky-50 border border-slate-200 transition-all">
+                    <button onClick={() => setActiveFilter('islami')} className={`w-full max-w-xs sm:w-auto filter-btn px-5 py-2.5 rounded-full text-sm font-bold shadow-sm transition-all border-2 ${activeFilter === 'islami' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-700 hover:bg-sky-50 border-slate-200 hover:border-emerald-300'}`}>
                         🕌 Keislaman & Tahfidz
                     </button>
-                    <button  className="filter-btn px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold bg-white text-slate-700 hover:bg-sky-50 border border-slate-200 transition-all">
+                    <button onClick={() => setActiveFilter('seni')} className={`w-full max-w-xs sm:w-auto filter-btn px-5 py-2.5 rounded-full text-sm font-bold shadow-sm transition-all border-2 ${activeFilter === 'seni' ? 'bg-amber-500 text-slate-900 border-amber-500' : 'bg-white text-slate-700 hover:bg-sky-50 border-slate-200 hover:border-amber-300'}`}>
                         🎨 Seni & Kreativitas
                     </button>
-                    <button  className="filter-btn px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold bg-white text-slate-700 hover:bg-sky-50 border border-slate-200 transition-all">
+                    <button onClick={() => setActiveFilter('ketangkasan')} className={`w-full max-w-xs sm:w-auto filter-btn px-5 py-2.5 rounded-full text-sm font-bold shadow-sm transition-all border-2 ${activeFilter === 'ketangkasan' ? 'bg-sky-500 text-white border-sky-500' : 'bg-white text-slate-700 hover:bg-sky-50 border-slate-200 hover:border-sky-300'}`}>
                         🧩 Sains & Ketangkasan
                     </button>
                 </div>
             </div>
 
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="lombaCardsGrid">
-                
-                
-                <div className="lomba-card islami bg-white rounded-3xl p-6 border-2 border-emerald-200 shadow-md hover:shadow-xl transition-all card-3d-hover flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-start justify-between mb-4">
-                            <span className="text-3xl">📖</span>
-                            <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
-                                TK A & B
-                            </span>
+            <div className="relative w-full">
+                {/* Ghost Grid to preserve height exactly so footer NEVER jumps */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 opacity-0 pointer-events-none select-none" aria-hidden="true">
+                    {lombaList.map((lomba) => (
+                        <div key={lomba.id} className="lomba-card bg-white rounded-3xl p-6 border-2 flex flex-col justify-between invisible">
+                            <div>
+                                <div className="flex items-start justify-between mb-4">
+                                    <span className="text-3xl">{lomba.icon}</span>
+                                    <span className="text-[11px] px-2.5 py-1">{lomba.target}</span>
+                                </div>
+                                <h3 className="text-xl font-bold mb-2">{lomba.title}</h3>
+                                <p className="text-xs mb-4">{lomba.desc}</p>
+                                <div className="space-y-1.5 text-xs p-3 mb-4">
+                                    <div className="flex justify-between"><span>Sisa Peserta:</span> <strong>{Math.max(0, lomba.quota - (participantCounts[lomba.dbValue] || 0))} dari {lomba.quota}</strong></div>
+                                    <div className="flex justify-between"><span>Biaya:</span> <strong>{lomba.price}</strong></div>
+                                </div>
+                            </div>
+                            <div className="w-full py-2.5">Pilih Lomba Ini</div>
                         </div>
-                        <h3 className="text-xl font-bold font-bubbly text-slate-900 mb-2">Tahfidz Cilik (Juz 30)</h3>
-                        <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                            Uji hafalan surah-surah pendek pilihan dengan tartil, makhraj yang benar, dan adab tilawah.
-                        </p>
-                        <div className="space-y-1.5 text-xs text-slate-500 mb-4 bg-slate-50 p-3 rounded-2xl">
-                            <div className="flex justify-between"><span>Kuota:</span> <strong className="text-slate-800">40 Peserta</strong></div>
-                            <div className="flex justify-between"><span>Biaya:</span> <strong className="text-emerald-600 font-bold">Rp 35.000</strong></div>
-                        </div>
-                    </div>
-                    <button  className="w-full py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5">
-                        <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
-                    </button>
+                    ))}
                 </div>
 
-                
-                <div className="lomba-card islami bg-white rounded-3xl p-6 border-2 border-emerald-200 shadow-md hover:shadow-xl transition-all card-3d-hover flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-start justify-between mb-4">
-                            <span className="text-3xl">🤲</span>
-                            <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
-                                TK A & B
-                            </span>
-                        </div>
-                        <h3 className="text-xl font-bold font-bubbly text-slate-900 mb-2">Hafalan Doa & Hadits</h3>
-                        <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                            Melafalkan doa sehari-hari beserta hadits akhlak dengan kelancaran dan pemahaman arti sederhana.
-                        </p>
-                        <div className="space-y-1.5 text-xs text-slate-500 mb-4 bg-slate-50 p-3 rounded-2xl">
-                            <div className="flex justify-between"><span>Kuota:</span> <strong className="text-slate-800">35 Peserta</strong></div>
-                            <div className="flex justify-between"><span>Biaya:</span> <strong className="text-emerald-600 font-bold">Rp 35.000</strong></div>
-                        </div>
-                    </div>
-                    <button  className="w-full py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5">
-                        <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
-                    </button>
-                </div>
-
-                
-                <div className="lomba-card seni bg-white rounded-3xl p-6 border-2 border-amber-200 shadow-md hover:shadow-xl transition-all card-3d-hover flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-start justify-between mb-4">
-                            <span className="text-3xl">🎨</span>
-                            <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
-                                TK A & B
-                            </span>
-                        </div>
-                        <h3 className="text-xl font-bold font-bubbly text-slate-900 mb-2">Lomba Mewarnai Cilik</h3>
-                        <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                            Mengekspresikan imajinasi dan gradasi warna ceria pada sketsa petualang cilik JinGa.
-                        </p>
-                        <div className="space-y-1.5 text-xs text-slate-500 mb-4 bg-slate-50 p-3 rounded-2xl">
-                            <div className="flex justify-between"><span>Kuota:</span> <strong className="text-slate-800">75 Peserta</strong></div>
-                            <div className="flex justify-between"><span>Biaya:</span> <strong className="text-amber-600 font-bold">Rp 30.000</strong></div>
-                        </div>
-                    </div>
-                    <button  className="w-full py-2.5 rounded-xl bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5">
-                        <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
-                    </button>
-                </div>
-
-                
-                <div className="lomba-card islami bg-white rounded-3xl p-6 border-2 border-emerald-200 shadow-md hover:shadow-xl transition-all card-3d-hover flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-start justify-between mb-4">
-                            <span className="text-3xl">🎤</span>
-                            <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
-                                Khusus TK B
-                            </span>
-                        </div>
-                        <h3 className="text-xl font-bold font-bubbly text-slate-900 mb-2">Pildacil (Dai Cilik)</h3>
-                        <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                            Menumbuhkan keberanian berbicara di depan panggung dengan pesan moral islami yang menggemaskan.
-                        </p>
-                        <div className="space-y-1.5 text-xs text-slate-500 mb-4 bg-slate-50 p-3 rounded-2xl">
-                            <div className="flex justify-between"><span>Kuota:</span> <strong className="text-slate-800">25 Peserta</strong></div>
-                            <div className="flex justify-between"><span>Biaya:</span> <strong className="text-emerald-600 font-bold">Rp 35.000</strong></div>
-                        </div>
-                    </div>
-                    <button  className="w-full py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5">
-                        <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
-                    </button>
-                </div>
-
-                
-                <div className="lomba-card seni bg-white rounded-3xl p-6 border-2 border-amber-200 shadow-md hover:shadow-xl transition-all card-3d-hover flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-start justify-between mb-4">
-                            <span className="text-3xl">👗</span>
-                            <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
-                                Putra & Putri
-                            </span>
-                        </div>
-                        <h3 className="text-xl font-bold font-bubbly text-slate-900 mb-2">Fashion Busana Muslim</h3>
-                        <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                            Peragaan busana muslim/muslimah cilik bertema &quot;Little Explorer&quot; yang syar&apos;i, anggun, dan percaya diri.
-                        </p>
-                        <div className="space-y-1.5 text-xs text-slate-500 mb-4 bg-slate-50 p-3 rounded-2xl">
-                            <div className="flex justify-between"><span>Kuota:</span> <strong className="text-slate-800">30 Peserta</strong></div>
-                            <div className="flex justify-between"><span>Biaya:</span> <strong className="text-amber-600 font-bold">Rp 40.000</strong></div>
-                        </div>
-                    </div>
-                    <button  className="w-full py-2.5 rounded-xl bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5">
-                        <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
-                    </button>
-                </div>
-
-                
-                <div className="lomba-card islami bg-white rounded-3xl p-6 border-2 border-emerald-200 shadow-md hover:shadow-xl transition-all card-3d-hover flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-start justify-between mb-4">
-                            <span className="text-3xl">🗣️</span>
-                            <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
-                                Khusus Ikhwan
-                            </span>
-                        </div>
-                        <h3 className="text-xl font-bold font-bubbly text-slate-900 mb-2">Lomba Adzan Cilik</h3>
-                        <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                            Melantunkan panggilan adzan Subuh/Dzuhur dengan kemerduan nada, kejelasan makhraj, dan adab muadzin.
-                        </p>
-                        <div className="space-y-1.5 text-xs text-slate-500 mb-4 bg-slate-50 p-3 rounded-2xl">
-                            <div className="flex justify-between"><span>Kuota:</span> <strong className="text-slate-800">30 Peserta</strong></div>
-                            <div className="flex justify-between"><span>Biaya:</span> <strong className="text-emerald-600 font-bold">Rp 30.000</strong></div>
-                        </div>
-                    </div>
-                    <button  className="w-full py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5">
-                        <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
-                    </button>
-                </div>
-
-                
-                <div className="lomba-card ketangkasan bg-white rounded-3xl p-6 border-2 border-sky-200 shadow-md hover:shadow-xl transition-all card-3d-hover flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-start justify-between mb-4">
-                            <span className="text-3xl">🧩</span>
-                            <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-sky-100 text-sky-800">
-                                Sains & Logika
-                            </span>
-                        </div>
-                        <h3 className="text-xl font-bold font-bubbly text-slate-900 mb-2">Puzzle & Sains Cilik</h3>
-                        <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                            Tantangan kecepatan menyusun balok logika, geometri, dan eksperimen warna sains pemula yang seru.
-                        </p>
-                        <div className="space-y-1.5 text-xs text-slate-500 mb-4 bg-slate-50 p-3 rounded-2xl">
-                            <div className="flex justify-between"><span>Kuota:</span> <strong className="text-slate-800">30 Peserta</strong></div>
-                            <div className="flex justify-between"><span>Biaya:</span> <strong className="text-sky-600 font-bold">Rp 35.000</strong></div>
-                        </div>
-                    </div>
-                    <button  className="w-full py-2.5 rounded-xl bg-sky-50 hover:bg-sky-600 hover:text-white text-sky-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5">
-                        <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
-                    </button>
-                </div>
-
-                
-                <div className="lomba-card ketangkasan bg-white rounded-3xl p-6 border-2 border-sky-200 shadow-md hover:shadow-xl transition-all card-3d-hover flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-start justify-between mb-4">
-                            <span className="text-3xl">🏃</span>
-                            <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-sky-100 text-sky-800">
-                                Motorik Kasar
-                            </span>
-                        </div>
-                        <h3 className="text-xl font-bold font-bubbly text-slate-900 mb-2">Halang Rintang Cilik</h3>
-                        <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                            Arena jelajah aman: merangkak terowongan, titian keseimbangan, dan mengumpulkan bintang harta karun.
-                        </p>
-                        <div className="space-y-1.5 text-xs text-slate-500 mb-4 bg-slate-50 p-3 rounded-2xl">
-                            <div className="flex justify-between"><span>Kuota:</span> <strong className="text-slate-800">40 Peserta</strong></div>
-                            <div className="flex justify-between"><span>Biaya:</span> <strong className="text-sky-600 font-bold">Rp 35.000</strong></div>
-                        </div>
-                    </div>
-                    <button  className="w-full py-2.5 rounded-xl bg-sky-50 hover:bg-sky-600 hover:text-white text-sky-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5">
-                        <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
-                    </button>
-                </div>
-
+                {/* Actual Animated Grid */}
+                <motion.div layout className="absolute inset-0 flex flex-wrap gap-6 z-10 content-start" id="lombaCardsGrid">
+                    <AnimatePresence mode="popLayout">
+                    {filteredLomba.map((lomba) => (
+                        <motion.div 
+                            key={lomba.id} 
+                            layout
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.3, ease: "easeInOut" }}
+                            className={`w-full md:w-[calc(50%-0.75rem)] lg:w-[calc(25%-1.125rem)] lomba-card ${lomba.category} bg-white rounded-3xl p-6 border-2 ${lomba.classes.border} shadow-md hover:shadow-xl transition-all card-3d-hover flex flex-col justify-between`}
+                        >
+                            <div>
+                                <div className="flex items-start justify-between mb-4">
+                                    <span className="text-3xl">{lomba.icon}</span>
+                                    <span className={`text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full ${lomba.classes.tagBg} ${lomba.classes.tagText}`}>
+                                        {lomba.target}
+                                    </span>
+                                </div>
+                                <h3 className="text-xl font-bold font-bubbly text-slate-900 mb-2">{lomba.title}</h3>
+                                <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+                                    {lomba.desc}
+                                </p>
+                                <div className="space-y-1.5 text-xs text-slate-500 mb-4 bg-slate-50 p-3 rounded-2xl">
+                                    <div className="flex justify-between"><span>Sisa Peserta:</span> <strong className="text-slate-800">{Math.max(0, lomba.quota - (participantCounts[lomba.dbValue] || 0))} dari {lomba.quota}</strong></div>
+                                    <div className="flex justify-between"><span>Biaya:</span> <strong className={`${lomba.classes.priceText} font-bold`}>{lomba.price}</strong></div>
+                                </div>
+                            </div>
+                            <Link href="/daftar" className={`w-full py-2.5 rounded-xl ${lomba.classes.btnBg} ${lomba.classes.btnHover} hover:text-white ${lomba.classes.btnText} font-bold text-xs transition-colors flex items-center justify-center gap-1.5`}>
+                                <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
+                            </Link>
+                        </motion.div>
+                    ))}
+                    </AnimatePresence>
+                </motion.div>
             </div>
 
             
@@ -717,176 +632,6 @@ export default function Home() {
         </div>
     </section>
 
-    
-    <section id="daftar" className="py-16 sm:py-24 bg-white relative">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-            
-            <div className="bg-gradient-to-br from-sky-50 via-white to-amber-50 rounded-3xl border-2 border-sky-200 shadow-2xl p-6 sm:p-10 relative overflow-hidden">
-                
-                
-                <div className="text-center max-w-2xl mx-auto space-y-3 mb-8">
-                    <span className="inline-block px-4 py-1 rounded-full bg-amber-400 text-slate-900 text-xs font-extrabold tracking-wider uppercase shadow-sm">
-                        📝 Tiket Ekspedisi Online
-                    </span>
-                    <h2 className="text-3xl sm:text-4xl font-extrabold font-bubbly text-slate-900">
-                        Formulir Registrasi <span className="text-sky-600">Calon Penjelajah</span>
-                    </h2>
-                    <p className="text-slate-600 text-xs sm:text-sm">
-                        Daftar mandiri (Orang Tua) atau kolektif (Sekolah). Data akan terhitung otomatis dan langsung terhubung ke WhatsApp Panitia Resmi.
-                    </p>
-                </div>
-
-                <form id="registrationForm"  className="space-y-6">
-                    
-                    
-                    <div className="flex items-center justify-center gap-4 bg-white p-2 rounded-2xl border border-sky-100 max-w-md mx-auto shadow-inner">
-                        <label className="flex-1 text-center cursor-pointer">
-                            <input type="radio" name="registrationType" value="mandiri" checked  className="peer sr-only" />
-                            <div className="py-2.5 rounded-xl font-bold text-xs sm:text-sm text-slate-600 peer-checked:bg-sky-600 peer-checked:text-white transition-all">
-                                👨‍👩‍👦 Mandiri (Orang Tua)
-                            </div>
-                        </label>
-                        <label className="flex-1 text-center cursor-pointer">
-                            <input type="radio" name="registrationType" value="kolektif"  className="peer sr-only" />
-                            <div className="py-2.5 rounded-xl font-bold text-xs sm:text-sm text-slate-600 peer-checked:bg-emerald-600 peer-checked:text-white transition-all">
-                                🏫 Kolektif (Sekolah TK/RA)
-                            </div>
-                        </label>
-                    </div>
-
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        
-                        
-                        <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5" id="labelNamaPendaftar">
-                                Nama Orang Tua / Wali *
-                            </label>
-                            <input type="text" id="parentName" required placeholder="Contoh: Bunda Aisyah" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none text-sm" />
-                        </div>
-
-                        
-                        <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                                No. WhatsApp Aktif *
-                            </label>
-                            <input type="tel" id="whatsappNumber" required placeholder="Contoh: 081234567890" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none text-sm" />
-                        </div>
-
-                        
-                        <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                                Asal Sekolah TK / RA *
-                            </label>
-                            <input type="text" id="schoolOrigin" required placeholder="Contoh: RA Al-Falah / TK Pertiwi" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none text-sm" />
-                        </div>
-
-                        
-                        <div>
-                            <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5" id="labelNamaPeserta">
-                                Nama Lengkap Ananda (Peserta) *
-                            </label>
-                            <input type="text" id="childName" required placeholder="Contoh: Muhammad Rayyan" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none text-sm" />
-                        </div>
-
-                    </div>
-
-                    
-                    <div className="space-y-3 pt-2">
-                        <label className="block text-xs font-bold text-slate-700 uppercase">
-                            Pilih Cabang Lomba yang Diikuti (Bisa Lebih Dari 1):
-                        </label>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" id="lombaChecklist">
-                            
-                            <label className="flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-400 cursor-pointer transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <input type="checkbox" name="lombaSelected" value="Tahfidz Cilik (Juz 30)" data-price="35000"  className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500" />
-                                    <span className="text-xs sm:text-sm font-semibold text-slate-800">📖 Tahfidz Cilik (Juz 30)</span>
-                                </div>
-                                <span className="text-xs font-bold text-emerald-600">Rp 35.000</span>
-                            </label>
-
-                            <label className="flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-400 cursor-pointer transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <input type="checkbox" name="lombaSelected" value="Hafalan Doa & Hadits" data-price="35000"  className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500" />
-                                    <span className="text-xs sm:text-sm font-semibold text-slate-800">🤲 Hafalan Doa & Hadits</span>
-                                </div>
-                                <span className="text-xs font-bold text-emerald-600">Rp 35.000</span>
-                            </label>
-
-                            <label className="flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-amber-400 cursor-pointer transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <input type="checkbox" name="lombaSelected" value="Lomba Mewarnai Cilik" data-price="30000"  className="w-5 h-5 text-amber-600 rounded focus:ring-amber-500" />
-                                    <span className="text-xs sm:text-sm font-semibold text-slate-800">🎨 Lomba Mewarnai Cilik</span>
-                                </div>
-                                <span className="text-xs font-bold text-amber-600">Rp 30.000</span>
-                            </label>
-
-                            <label className="flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-400 cursor-pointer transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <input type="checkbox" name="lombaSelected" value="Pildacil (Dai Cilik)" data-price="35000"  className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500" />
-                                    <span className="text-xs sm:text-sm font-semibold text-slate-800">🎤 Pildacil (Dai Cilik)</span>
-                                </div>
-                                <span className="text-xs font-bold text-emerald-600">Rp 35.000</span>
-                            </label>
-
-                            <label className="flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-amber-400 cursor-pointer transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <input type="checkbox" name="lombaSelected" value="Fashion Busana Muslim" data-price="40000"  className="w-5 h-5 text-amber-600 rounded focus:ring-amber-500" />
-                                    <span className="text-xs sm:text-sm font-semibold text-slate-800">👗 Fashion Busana Muslim</span>
-                                </div>
-                                <span className="text-xs font-bold text-amber-600">Rp 40.000</span>
-                            </label>
-
-                            <label className="flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-400 cursor-pointer transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <input type="checkbox" name="lombaSelected" value="Lomba Adzan Cilik" data-price="30000"  className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500" />
-                                    <span className="text-xs sm:text-sm font-semibold text-slate-800">🗣️ Lomba Adzan Cilik</span>
-                                </div>
-                                <span className="text-xs font-bold text-emerald-600">Rp 30.000</span>
-                            </label>
-
-                            <label className="flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-sky-400 cursor-pointer transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <input type="checkbox" name="lombaSelected" value="Puzzle & Sains Cilik" data-price="35000"  className="w-5 h-5 text-sky-600 rounded focus:ring-sky-500" />
-                                    <span className="text-xs sm:text-sm font-semibold text-slate-800">🧩 Puzzle & Sains Cilik</span>
-                                </div>
-                                <span className="text-xs font-bold text-sky-600">Rp 35.000</span>
-                            </label>
-
-                            <label className="flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-sky-400 cursor-pointer transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <input type="checkbox" name="lombaSelected" value="Halang Rintang Cilik" data-price="35000"  className="w-5 h-5 text-sky-600 rounded focus:ring-sky-500" />
-                                    <span className="text-xs sm:text-sm font-semibold text-slate-800">🏃 Halang Rintang Cilik</span>
-                                </div>
-                                <span className="text-xs font-bold text-sky-600">Rp 35.000</span>
-                            </label>
-
-                        </div>
-                    </div>
-
-                    
-                    <div className="bg-slate-900 text-white p-5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                        <div>
-                            <span className="text-xs text-slate-400 block">Total Biaya Pendaftaran:</span>
-                            <div className="text-2xl sm:text-3xl font-extrabold font-bubbly text-amber-400" id="totalDisplay">
-                                Rp 0
-                            </div>
-                            <span className="text-[11px] text-sky-200" id="selectedCountText">0 lomba terpilih</span>
-                        </div>
-                        <button type="submit" className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-extrabold text-sm shadow-lg hover:from-emerald-400 hover:to-emerald-500 transition-all flex items-center justify-center gap-2">
-                            <i className="fa-brands fa-whatsapp text-lg"></i>
-                            <span>Kirim Pendaftaran via WhatsApp</span>
-                        </button>
-                    </div>
-
-                </form>
-
-            </div>
-
-        </div>
-    </section>
 
     
     <section id="lokasi" className="py-16 sm:py-24 bg-slate-50 relative">
@@ -1036,7 +781,7 @@ export default function Home() {
                         <span className="text-xs uppercase font-extrabold bg-amber-400 text-slate-900 px-2 py-0.5 rounded-full">Festival 2026</span>
                     </div>
                     <p className="text-slate-400 max-w-md leading-relaxed">
-                        Ekspedisi Akbar TK/RA se-derajat dalam rangka membentuk generasi pembelajar cilik yang unggul dalam ilmu pengetahuan, tangguh dalam amal, dan mulia dalam akhlak islami.
+                        Ekspedisi Akbar TK/RA se-Kabupaten Purwakarta dalam rangka membentuk generasi pembelajar cilik yang unggul dalam ilmu pengetahuan, tangguh dalam amal, dan mulia dalam akhlak islami.
                     </p>
                     <p className="text-slate-500 font-semibold">Tuan Rumah: SD Plus 3 Al-Muhajirin</p>
                 </div>
@@ -1069,13 +814,7 @@ export default function Home() {
         </div>
     </footer>
 
-    
-    <a href="https://wa.me/6281234567890?text=Halo%20Panitia%20JinGa%20Festival%202026,%20saya%20ingin%20bertanya%20seputar%20pendaftaran%20lomba%20TK/RA" target="_blank" className="fixed bottom-6 right-6 z-50 bg-emerald-500 hover:bg-emerald-400 text-white p-4 rounded-full shadow-2xl flex items-center gap-3 font-bold text-sm hover:scale-110 active:scale-95 transition-all group" aria-label="Chat WhatsApp Panitia">
-        <i className="fa-brands fa-whatsapp text-2xl"></i>
-        <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-500 ease-in-out text-xs">
-            Tanya Panitia
-        </span>
-    </a>
+
 
     
     <div id="posterModal" className="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-md hidden items-center justify-center p-4">

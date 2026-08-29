@@ -51,6 +51,8 @@
     0% { transform: translateX(-10%); }
     100% { transform: translateX(110%); }
   }
+  /* Custom Fonts */
+  --font-sans: var(--font-jakarta), Arial, sans-serif;
 }
 
 :root {
@@ -61,11 +63,12 @@
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family: var(--font-sans);
 }
 
 /* Custom Legacy Classes */
 .font-bubbly {
-  font-family: 'Fredoka', cursive, sans-serif;
+  font-family: var(--font-fredoka), 'Fredoka', cursive, sans-serif;
 }
 .bunting-banner {
   background-image: repeating-linear-gradient(45deg, #EF4444 0, #EF4444 15px, #F59E0B 15px, #F59E0B 30px, #10B981 30px, #10B981 45px, #0284C7 45px, #0284C7 60px);
