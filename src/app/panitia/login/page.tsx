@@ -38,8 +38,8 @@ export default function PanitiaLogin() {
             <div className="w-full max-w-md relative z-10">
                 {/* Logo & Header */}
                 <div className="text-center mb-8">
-                    <div className="w-20 h-20 mx-auto bg-white rounded-3xl p-4 shadow-bubbly border-4 border-white mb-4 rotate-3 hover:rotate-0 transition-transform duration-300 flex items-center justify-center">
-                        <i className="fa-solid fa-user-shield text-4xl text-sky-500"></i>
+                    <div className="w-24 h-24 mx-auto bg-white rounded-full p-2 shadow-bubbly border-4 border-white mb-4 hover:scale-105 transition-transform duration-300 flex items-center justify-center">
+                        <img src="/assets/logo.png" alt="Logo SD Plus 3 Al-Muhajirin" className="w-full h-full object-contain" />
                     </div>
                     <span className="inline-block px-4 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-extrabold tracking-wider uppercase mb-3">
                         🔒 Area Terbatas

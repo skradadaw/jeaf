@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import QRCode from 'react-qr-code';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
+import CustomSelect from '@/components/CustomSelect';
+import CustomDatePicker from '@/components/CustomDatePicker';
 
 interface PesertaModalProps {
   isOpen: boolean;
@@ -185,7 +187,11 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
                       
                       <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Tanggal Lahir</label>
-                        <input type="date" value={formData.tgl_lahir} onChange={e => setFormData({...formData, tgl_lahir: e.target.value})} className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-[#0ea5e9]/20 focus:border-[#0ea5e9] outline-none transition-all" />
+                        <CustomDatePicker 
+                          size="sm"
+                          value={formData.tgl_lahir ? new Date(formData.tgl_lahir) : null} 
+                          onChange={(date) => setFormData({...formData, tgl_lahir: date ? date.toISOString().split('T')[0] : ''})} 
+                        />
                       </div>
                       
                       <div className="grid grid-cols-2 gap-3.5">
@@ -208,11 +214,12 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
                       
                       <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Cabang Lomba</label>
-                        <select value={formData.cabang_lomba} onChange={e => setFormData({...formData, cabang_lomba: e.target.value})} className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-[#0ea5e9]/20 focus:border-[#0ea5e9] outline-none transition-all cursor-pointer appearance-none">
-                          {cabangLombaList.map(cab => (
-                            <option key={cab} value={cab}>{cab}</option>
-                          ))}
-                        </select>
+                        <CustomSelect 
+                          size="sm"
+                          value={formData.cabang_lomba} 
+                          onChange={val => setFormData({...formData, cabang_lomba: val})}
+                          options={cabangLombaList.map(cab => ({ value: cab, label: cab, icon: 'fa-solid fa-trophy' }))}
+                        />
                       </div>
                     </div>
                   </div>

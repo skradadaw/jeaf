@@ -17,6 +17,7 @@ interface CustomSelectProps {
   placeholder?: string;
   name?: string;
   required?: boolean;
+  size?: 'sm' | 'md';
 }
 
 export default function CustomSelect({ 
@@ -25,7 +26,8 @@ export default function CustomSelect({
   onChange, 
   placeholder = "Pilih salah satu",
   name,
-  required
+  required,
+  size = 'md'
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [internalValue, setInternalValue] = useState<string>('');
@@ -62,22 +64,23 @@ export default function CustomSelect({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full rounded-2xl border-2 px-4 py-3 bg-slate-50 flex items-center justify-between transition-all outline-none font-bold text-slate-700
-          ${isOpen ? 'border-amber-400 bg-white ring-4 ring-amber-400/20' : 'border-slate-200 hover:border-amber-300'}
+        className={`w-full flex items-center justify-between transition-all outline-none font-bold text-slate-700
+          ${size === 'sm' ? 'rounded-xl border px-3 py-2 text-sm' : 'rounded-2xl border-2 px-4 py-3'}
+          ${isOpen ? 'border-amber-400 bg-white ring-4 ring-amber-400/20' : 'border-slate-200 bg-slate-50 hover:border-amber-300'}
         `}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {selectedOption ? (
             <>
               {selectedOption.icon && (
-                <div className={`w-8 h-8 rounded-full ${selectedOption.color || 'bg-amber-100 text-amber-600'} flex items-center justify-center text-sm`}>
+                <div className={`rounded-full flex items-center justify-center shrink-0 ${selectedOption.color || 'bg-amber-100 text-amber-600'} ${size === 'sm' ? 'w-6 h-6 text-[10px]' : 'w-8 h-8 text-sm'}`}>
                   <i className={selectedOption.icon}></i>
                 </div>
               )}
-              <span>{selectedOption.label}</span>
+              <span className="truncate">{selectedOption.label}</span>
             </>
           ) : (
-            <span className="text-slate-400 font-medium">{placeholder}</span>
+            <span className="text-slate-400 font-medium truncate">{placeholder}</span>
           )}
         </div>
         <div className={`text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
@@ -100,20 +103,22 @@ export default function CustomSelect({
                   key={option.value}
                   type="button"
                   onClick={() => handleSelect(option.value)}
-                  className={`w-full text-left px-3 py-3 rounded-xl flex items-center gap-3 transition-colors mb-1 last:mb-0
+                  className={`w-full text-left flex items-center gap-2 sm:gap-3 transition-colors mb-1 last:mb-0
+                    ${size === 'sm' ? 'px-3 py-2 rounded-lg text-sm' : 'px-3 py-3 rounded-xl'}
                     ${value === option.value ? 'bg-amber-50 font-bold text-amber-700' : 'hover:bg-slate-50 text-slate-700 font-medium'}
                   `}
                 >
                    {option.icon && (
-                    <div className={`w-8 h-8 shrink-0 rounded-full ${option.color || 'bg-slate-100 text-slate-500'} flex items-center justify-center text-sm transition-colors
+                    <div className={`shrink-0 rounded-full flex items-center justify-center transition-colors ${option.color || 'bg-slate-100 text-slate-500'}
+                      ${size === 'sm' ? 'w-6 h-6 text-[10px]' : 'w-8 h-8 text-sm'}
                       ${value === option.value ? 'bg-amber-200 text-amber-700' : ''}
                     `}>
                       <i className={option.icon}></i>
                     </div>
                   )}
-                  <span>{option.label}</span>
+                  <span className="truncate">{option.label}</span>
                   {value === option.value && (
-                    <i className="fa-solid fa-check text-amber-500 ml-auto text-lg"></i>
+                    <i className="fa-solid fa-check text-amber-500 ml-auto text-lg shrink-0"></i>
                   )}
                 </button>
               ))}

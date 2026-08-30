@@ -12,6 +12,7 @@ interface CustomDatePickerProps {
   placeholder?: string;
   name?: string;
   required?: boolean;
+  size?: 'sm' | 'md';
 }
 
 export default function CustomDatePicker({ 
@@ -19,7 +20,8 @@ export default function CustomDatePicker({
   onChange, 
   placeholder = "Pilih tanggal",
   name,
-  required
+  required,
+  size = 'md'
 }: CustomDatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [internalValue, setInternalValue] = useState<Date | null>(null);
@@ -81,7 +83,7 @@ export default function CustomDatePicker({
 
   const days = [];
   for (let i = 0; i < firstDay; i++) {
-    days.push(<div key={`empty-${i}`} className="w-8 h-8 sm:w-10 sm:h-10"></div>);
+    days.push(<div key={`empty-${i}`} className={`w-8 h-8 ${size === 'sm' ? '' : 'sm:w-10 sm:h-10'}`}></div>);
   }
   for (let i = 1; i <= daysInMonth; i++) {
     const isSelected = value && value.getDate() === i && value.getMonth() === currentMonth && value.getFullYear() === currentYear;
@@ -90,7 +92,7 @@ export default function CustomDatePicker({
         key={i}
         type="button"
         onClick={() => handleSelectDate(i)}
-        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all
+        className={`w-8 h-8 ${size === 'sm' ? '' : 'sm:w-10 sm:h-10'} rounded-full flex items-center justify-center text-sm font-semibold transition-all
           ${isSelected ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30 hover:bg-sky-600' : 'text-slate-700 hover:bg-sky-100 hover:text-sky-600'}
         `}
       >
@@ -113,14 +115,15 @@ export default function CustomDatePicker({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full rounded-2xl border-2 px-4 py-3 bg-slate-50 flex items-center justify-between transition-all outline-none font-medium text-left
-          ${isOpen ? 'border-sky-400 bg-white ring-4 ring-sky-400/20' : 'border-slate-200 hover:border-sky-300'}
+        className={`w-full flex items-center justify-between transition-all outline-none font-medium text-left
+          ${size === 'sm' ? 'rounded-xl border px-3 py-2 text-sm' : 'rounded-2xl border-2 px-4 py-3'}
+          ${isOpen ? 'border-sky-400 bg-white ring-4 ring-sky-400/20' : 'border-slate-200 bg-slate-50 hover:border-sky-300'}
         `}
       >
         <span className={value ? 'text-slate-700' : 'text-slate-400'}>
           {value ? formatDate(value) : placeholder}
         </span>
-        <i className="fa-regular fa-calendar text-sky-500 text-lg"></i>
+        <i className={`fa-regular fa-calendar text-sky-500 ${size === 'sm' ? 'text-base' : 'text-lg'}`}></i>
       </button>
 
       <AnimatePresence>
@@ -130,7 +133,9 @@ export default function CustomDatePicker({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute z-50 mt-2 w-full sm:w-auto min-w-[320px] bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/50 p-4"
+            className={`absolute z-50 mt-2 w-full sm:w-auto bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/50 
+              ${size === 'sm' ? 'min-w-[280px] p-3' : 'min-w-[320px] p-4'}
+            `}
           >
             <div className="flex items-center justify-between mb-4 px-2">
               <button
@@ -154,7 +159,7 @@ export default function CustomDatePicker({
             
             <div className="grid grid-cols-7 gap-1 mb-2 px-2 text-center">
               {DAYS.map(day => (
-                <div key={day} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider w-8 sm:w-10">
+                <div key={day} className={`text-[10px] font-bold text-slate-400 uppercase tracking-wider w-8 ${size === 'sm' ? '' : 'sm:w-10'}`}>
                   {day}
                 </div>
               ))}

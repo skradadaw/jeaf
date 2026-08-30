@@ -26,10 +26,8 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
       {/* Sidebar Desktop */}
       <aside className="hidden lg:flex flex-col w-72 bg-white/70 backdrop-blur-xl border-r border-slate-200/60 shadow-sm z-20">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-sky-500 p-0.5 shadow-sm">
-                <div className="w-full h-full bg-white rounded-[10px] flex items-center justify-center text-lg font-bold">
-                    🎪
-                </div>
+            <div className="w-12 h-12 rounded-xl shadow-sm flex-shrink-0">
+                <img src="/assets/logo.png" alt="Logo JinGa Panel" className="w-full h-full object-contain" />
             </div>
             <div>
                 <h2 className="text-xl font-bold tracking-tight text-slate-800">JinGa Panel</h2>
@@ -71,10 +69,8 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
         {/* Topbar Mobile */}
         <header className="lg:hidden bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-30 px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-400 to-sky-500 p-0.5 shadow-sm">
-                    <div className="w-full h-full bg-white rounded-md flex items-center justify-center text-sm font-bold">
-                        🎪
-                    </div>
+                <div className="w-10 h-10 rounded-lg shadow-sm flex-shrink-0">
+                    <img src="/assets/logo.png" alt="Logo JinGa Panel" className="w-full h-full object-contain" />
                 </div>
                 <h2 className="text-lg font-bold tracking-tight text-slate-800">JinGa Panel</h2>
             </div>
@@ -137,7 +133,17 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8 z-0">
+        <main className="flex-1 flex flex-col overflow-y-auto p-4 lg:p-8 z-0">
+            {/* Mobile Scan Button */}
+            {pathname !== '/panitia/scan' && (
+                <div className="lg:hidden mb-4">
+                    <Link href="/panitia/scan" className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-600 hover:to-sky-600 text-white px-5 py-3.5 rounded-2xl font-bold text-sm shadow-[0_8px_16px_rgba(99,102,241,0.2)] transition-all active:scale-[0.98]">
+                        <i className="fa-solid fa-qrcode text-lg"></i>
+                        <span>Scan Tiket Cepat</span>
+                    </Link>
+                </div>
+            )}
+            
             {children}
         </main>
       </div>

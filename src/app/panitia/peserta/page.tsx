@@ -7,6 +7,7 @@ import Link from 'next/link';
 import PesertaModal from '@/components/PesertaModal';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { toast } from 'react-hot-toast';
+import CustomSelect from '@/components/CustomSelect';
 
 export default function DataPesertaPage() {
   const [registrations, setRegistrations] = useState<any[]>([]);
@@ -142,18 +143,13 @@ export default function DataPesertaPage() {
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition-all"
               />
             </div>
-            <div className="relative">
-              <i className="fa-solid fa-filter absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-              <select 
+            <div className="relative min-w-[200px]">
+              <CustomSelect 
+                size="sm"
                 value={filterCabang} 
-                onChange={(e) => setFilterCabang(e.target.value)}
-                className="pl-10 pr-8 py-2.5 bg-slate-50 hover:bg-slate-100/50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition-all cursor-pointer appearance-none"
-              >
-                {cabangLombaList.map(cabang => (
-                  <option key={cabang} value={cabang}>{cabang}</option>
-                ))}
-              </select>
-              <i className="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                onChange={(val) => setFilterCabang(val)}
+                options={cabangLombaList.map(c => ({ value: c, label: c, icon: c === 'Semua' ? 'fa-solid fa-filter' : 'fa-solid fa-trophy' }))}
+              />
             </div>
           </div>
           

@@ -173,8 +173,8 @@ export default function DaftarPage() {
             <div className="bg-white border-b-4 border-amber-300 px-4 py-4 shadow-sm relative z-10">
                 <div className="max-w-3xl mx-auto flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-2 group">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-sky-500 p-0.5 shadow-sm group-hover:scale-105 transition-transform">
-                            <img src="/assets/hero-poster.png" alt="JinGa" className="w-full h-full object-cover rounded-[10px]" />
+                        <div className="w-12 h-12 group-hover:scale-105 transition-transform flex-shrink-0">
+                            <img src="/assets/logo.png" alt="Logo JinGa" className="w-full h-full object-contain drop-shadow-sm" />
                         </div>
                         <span className="text-xl font-bold font-bubbly text-sky-600 tracking-wide group-hover:text-amber-500 transition-colors">JinGa <span className="text-amber-400">2026</span></span>
                     </Link>

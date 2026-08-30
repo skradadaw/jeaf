@@ -78,8 +78,8 @@ export default function Home() {
                 
                 
                 <a href="#hero" className="flex items-center gap-3 group">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-sky-500 p-0.5 shadow-md group-hover:rotate-6 transition-transform">
-                        <img src="assets/hero-poster.png" alt="JinGa Explorers" className="w-full h-full object-cover rounded-[14px]" />
+                    <div className="w-14 h-14 group-hover:scale-105 transition-transform flex-shrink-0">
+                        <img src="assets/logo.png" alt="Logo SD Plus 3 Al-Muhajirin" className="w-full h-full object-contain drop-shadow-md" />
                     </div>
                     <div>
                         <div className="flex items-center gap-1.5">
@@ -189,12 +189,7 @@ export default function Home() {
             <i className="fa-solid fa-paper-plane text-white text-4xl absolute top-20 right-1/4 animate-float-slow"></i>
         </div>
 
-        
-        <div className="hidden lg:block absolute top-28 right-12 animate-float-slow pointer-events-none">
-            <div className="bg-amber-400 text-slate-900 px-3 py-1 rounded-full text-xs font-extrabold shadow-lg mb-1 animate-bounce text-center">
-                🎈 Jelajah Ilmu!
-            </div>
-        </div>
+        {/* Hiasan floating Jelajah Ilmu dihapus sesuai permintaan */}
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
@@ -284,7 +279,7 @@ export default function Home() {
                         </div>
                         <div>
                             <p className="text-xl sm:text-2xl font-bold font-bubbly text-amber-300">Jutaan Rp</p>
-                            <p className="text-[11px] sm:text-xs text-sky-100 font-medium">Tabungan & Piala Bergilir</p>
+                            <p className="text-[11px] sm:text-xs text-sky-100 font-medium">Potongan Biaya & Tabungan</p>
                         </div>
                     </div>
 
@@ -299,13 +294,9 @@ export default function Home() {
                         
                         
                         <div className="relative bg-slate-900 p-3 rounded-3xl shadow-2xl border-4 border-amber-300 overflow-hidden">
-                            <img src="assets/hero-poster.png" alt="Poster JinGa Explorers Academy Festival 2026" className="w-full h-auto rounded-2xl shadow-inner transform group-hover:scale-105 transition-transform duration-500 cursor-pointer"  />
+                            <img src="assets/hero-poster.png" alt="Poster JinGa Explorers Academy Festival 2026" className="w-full h-auto rounded-2xl shadow-inner transform group-hover:scale-105 transition-transform duration-500"  />
                             
-                            
-                            <div className="absolute bottom-6 left-6 right-6 bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-amber-400/40 text-center shadow-lg">
-                                <p className="text-xs font-bold text-amber-300">🔍 Klik poster untuk perbesar</p>
-                                <p className="text-[11px] text-slate-300">Tempat: SD Plus 3 Al-Muhajirin</p>
-                            </div>
+                            {/* Overlay dihapus sesuai permintaan */}
                         </div>
 
                         
@@ -315,7 +306,7 @@ export default function Home() {
 
                         
                         <div className="absolute -bottom-4 -right-4 bg-emerald-500 text-white px-4 py-2 rounded-2xl flex items-center gap-2 text-xs font-bold shadow-lg border-2 border-white animate-float-delayed">
-                            🏆 Piala Juara Umum
+                            🏫 Potongan Biaya Masuk
                         </div>
                     </div>
                 </div>
@@ -829,9 +820,12 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-12 border-b border-slate-800">
                 
                 <div className="space-y-4 md:col-span-2">
-                    <div className="flex items-center gap-2">
-                        <span className="text-2xl font-bold font-bubbly text-sky-400">JinGa</span>
-                        <span className="text-xs uppercase font-extrabold bg-amber-400 text-slate-900 px-2 py-0.5 rounded-full">Festival 2026</span>
+                    <div className="flex items-center gap-3">
+                        <img src="assets/logo.png" alt="Logo SD Plus 3 Al-Muhajirin" className="w-14 h-14 object-contain drop-shadow-md" />
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                            <span className="text-2xl font-bold font-bubbly text-sky-400">JinGa</span>
+                            <span className="text-xs uppercase font-extrabold bg-amber-400 text-slate-900 px-2 py-0.5 rounded-full self-start sm:self-auto">Festival 2026</span>
+                        </div>
                     </div>
                     <p className="text-slate-400 max-w-md leading-relaxed">
                         Ekspedisi Akbar TK/RA se-Kabupaten Purwakarta dalam rangka membentuk generasi pembelajar cilik yang unggul dalam ilmu pengetahuan, tangguh dalam amal, dan mulia dalam akhlak islami.
@@ -852,17 +846,19 @@ export default function Home() {
                 <div className="space-y-2">
                     <h5 className="font-bold text-white uppercase text-xs tracking-wider">Media Sosial</h5>
                     <div className="flex gap-3 pt-1 text-lg">
-                        <a href="#" className="w-9 h-9 rounded-full bg-slate-800 hover:bg-sky-600 text-white flex items-center justify-center transition-colors"><i className="fa-brands fa-instagram"></i></a>
-                        <a href="#" className="w-9 h-9 rounded-full bg-slate-800 hover:bg-emerald-600 text-white flex items-center justify-center transition-colors"><i className="fa-brands fa-whatsapp"></i></a>
-                        <a href="#" className="w-9 h-9 rounded-full bg-slate-800 hover:bg-red-600 text-white flex items-center justify-center transition-colors"><i className="fa-brands fa-youtube"></i></a>
+                        <a href="https://www.instagram.com/sdplus3almuhajirin/" target="_blank" rel="noreferrer" className="w-9 h-9 rounded-full bg-slate-800 hover:bg-sky-600 text-white flex items-center justify-center transition-colors"><i className="fa-brands fa-instagram"></i></a>
+                        <a href="https://wa.me/6281234567890" target="_blank" rel="noreferrer" className="w-9 h-9 rounded-full bg-slate-800 hover:bg-emerald-600 text-white flex items-center justify-center transition-colors"><i className="fa-brands fa-whatsapp"></i></a>
+                        <a href="https://www.youtube.com/channel/UCwcqB1JYus2Pk79TFSY273Q/about" target="_blank" rel="noreferrer" className="w-9 h-9 rounded-full bg-slate-800 hover:bg-red-600 text-white flex items-center justify-center transition-colors"><i className="fa-brands fa-youtube"></i></a>
                     </div>
                 </div>
 
             </div>
 
             <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-                <p>&copy; 2026 JinGa Explorers Academy Festival • SD Plus 3 Al-Muhajirin. All rights reserved.</p>
-                <p className="text-slate-500">Dirancang khusus untuk Petualang Cilik Indonesia 🇲🇨</p>
+                <p>&copy; 2026 JinGa Explorers Academy Festival • SD Plus 3 Al-Muhajirin.</p>
+                <p className="text-slate-500">
+                    <i className="fa-solid fa-code text-slate-400 mr-1"></i> Developed by <strong>Dani Ramdani, S.Kom</strong> (<a href="https://wa.me/6283820374734" target="_blank" rel="noreferrer" className="hover:text-sky-400 transition-colors">083820374734</a>)
+                </p>
             </div>
         </div>
     </footer>
