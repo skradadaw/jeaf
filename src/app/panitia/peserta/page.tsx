@@ -18,6 +18,9 @@ export default function DataPesertaPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{isOpen: boolean, id: string, name: string}>({ isOpen: false, id: '', name: '' });
   
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // Data options for filter
   const cabangLombaList = [
     'Semua', 'Adzan', 'Fashion Show', 'MHQ', 'Karya Kolase', 'Mewarnai', 'Tendangan Penalti', 'Menyanyi Solo'
@@ -124,6 +127,15 @@ export default function DataPesertaPage() {
     return matchesSearch && matchesCabang;
   });
 
+  // Reset pagination when filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterCabang, searchQuery]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   return (
     <div className="space-y-6">
       
@@ -187,7 +199,7 @@ export default function DataPesertaPage() {
                   </td>
                 </tr>
               ) : (
-                filteredData.map((reg) => (
+                paginatedData.map((reg) => (
                   <tr 
                     key={reg.id} 
                     className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
@@ -202,7 +214,7 @@ export default function DataPesertaPage() {
                         />
                         <div>
                           <p className="font-bold text-slate-800 text-sm mb-0.5 group-hover:text-sky-600 transition-colors">{reg.nama_anak}</p>
-                          <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-2 py-0.5 rounded-md" title={reg.id}>{reg.id.split('-')[0].toUpperCase()}</span>
+                          <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-2 py-0.5 rounded-md" title={reg.id}>{reg.no_peserta || reg.id.split('-')[0].toUpperCase()}</span>
                         </div>
                       </div>
                     </td>
@@ -277,11 +289,48 @@ export default function DataPesertaPage() {
           </table>
         </div>
         
-        {/* Pagination Info / Footer (Optional) */}
+        {/* Pagination Info / Footer */}
         {!loading && filteredData.length > 0 && (
-          <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-between text-xs text-slate-500 font-medium">
-            <p>Menampilkan semua data yang difilter</p>
-            <p>Otomatis disinkronisasi dengan Database</p>
+          <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-slate-500 font-medium">
+              Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredData.length)} dari {filteredData.length} data
+            </p>
+            
+            <div className="flex items-center gap-1.5">
+              <button 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-white hover:text-sky-600 disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-colors"
+                title="Halaman Sebelumnya"
+              >
+                <i className="fa-solid fa-chevron-left text-[10px]"></i>
+              </button>
+              
+              <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar max-w-[200px] sm:max-w-none">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all ${
+                      currentPage === page 
+                      ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/30' 
+                      : 'border border-slate-200 text-slate-600 hover:bg-white hover:text-sky-600'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-white hover:text-sky-600 disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-colors"
+                title="Halaman Berikutnya"
+              >
+                <i className="fa-solid fa-chevron-right text-[10px]"></i>
+              </button>
+            </div>
           </div>
         )}
       </div>

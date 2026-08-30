@@ -66,3 +66,76 @@ ON storage.objects
 FOR SELECT 
 TO anon 
 USING (bucket_id = 'foto-peserta');
+ 
+-- Tambahan kolom untuk fitur Penilaian Juri
+ALTER TABLE public.pendaftar ADD COLUMN nilai_total INTEGER, ADD COLUMN detail_nilai JSONB, ADD COLUMN catatan_juri TEXT;
+
+-- Tambahan kolom untuk nomor peserta urut & konsisten
+ALTER TABLE public.pendaftar ADD COLUMN no_peserta TEXT;
+
+-- Script UPDATE untuk mengisi data lama (Jalankan sekali di SQL Editor Supabase)
+-- DO $$
+-- DECLARE
+--     rec RECORD;
+--     prefix TEXT;
+--     seq INT;
+-- BEGIN
+--     FOR rec IN 
+--         SELECT id, cabang_lomba, created_at 
+--         FROM public.pendaftar 
+--         ORDER BY created_at ASC
+--     LOOP
+--         CASE rec.cabang_lomba
+--             WHEN 'Adzan' THEN prefix := 'ADZ';
+--             WHEN 'Fashion Show' THEN prefix := 'FSH';
+--             WHEN 'MHQ' THEN prefix := 'MHQ';
+--             WHEN 'Karya Kolase' THEN prefix := 'KOL';
+--             WHEN 'Mewarnai' THEN prefix := 'WAR';
+--             WHEN 'Tendangan Penalti' THEN prefix := 'PEN';
+--             WHEN 'Menyanyi Solo' THEN prefix := 'NYA';
+--             ELSE prefix := 'JEA';
+--         END CASE;
+--         
+--         SELECT COUNT(*) INTO seq
+--         FROM public.pendaftar
+--         WHERE cabang_lomba = rec.cabang_lomba AND created_at <= rec.created_at;
+--         
+--         UPDATE public.pendaftar
+--         SET no_peserta = prefix || '-2026-' || LPAD(seq::text, 3, '0')
+--         WHERE id = rec.id;
+--     END LOOP;
+-- END;
+-- $$ LANGUAGE plpgsql;
+
+-- Trigger untuk membuat nomor peserta otomatis saat ada pendaftar baru
+CREATE OR REPLACE FUNCTION generate_no_peserta()
+RETURNS TRIGGER AS $$
+DECLARE
+    prefix TEXT;
+    seq INT;
+BEGIN
+    CASE NEW.cabang_lomba
+        WHEN 'Adzan' THEN prefix := 'ADZ';
+        WHEN 'Fashion Show' THEN prefix := 'FSH';
+        WHEN 'MHQ' THEN prefix := 'MHQ';
+        WHEN 'Karya Kolase' THEN prefix := 'KOL';
+        WHEN 'Mewarnai' THEN prefix := 'WAR';
+        WHEN 'Tendangan Penalti' THEN prefix := 'PEN';
+        WHEN 'Menyanyi Solo' THEN prefix := 'NYA';
+        ELSE prefix := 'JEA';
+    END CASE;
+
+    SELECT COUNT(*) INTO seq
+    FROM public.pendaftar
+    WHERE cabang_lomba = NEW.cabang_lomba;
+
+    seq := seq + 1;
+    NEW.no_peserta := prefix || '-2026-' || LPAD(seq::text, 3, '0');
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_no_peserta_trigger
+BEFORE INSERT ON public.pendaftar
+FOR EACH ROW
+EXECUTE FUNCTION generate_no_peserta();

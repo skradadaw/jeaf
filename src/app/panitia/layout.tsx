@@ -16,7 +16,7 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
   const menuItems = [
     { name: 'Dashboard', path: '/panitia/dashboard', icon: 'fa-chart-pie', color: 'text-sky-500' },
     { name: 'Data Peserta', path: '/panitia/peserta', icon: 'fa-users', color: 'text-amber-500' },
-    { name: 'Keuangan', path: '/panitia/keuangan', icon: 'fa-wallet', color: 'text-emerald-500' },
+    { name: 'Penilaian Juri', path: '/panitia/penilaian', icon: 'fa-star', color: 'text-purple-500' },
     { name: 'Pengaturan', path: '/panitia/pengaturan', icon: 'fa-gear', color: 'text-slate-500' },
   ];
 
@@ -133,7 +133,7 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 flex flex-col overflow-y-auto p-4 lg:p-8 z-0">
+        <main className="flex-1 flex flex-col overflow-y-auto p-4 lg:p-8">
             {/* Mobile Scan Button */}
             {pathname !== '/panitia/scan' && (
                 <div className="lg:hidden mb-4">

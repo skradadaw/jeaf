@@ -10,6 +10,33 @@ export default function Home() {
   const [participantCounts, setParticipantCounts] = useState<Record<string, number>>({});
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
 
+  // State untuk countdown
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    // Target: 1 September 2026 00:00 WIB (+07:00)
+    const targetDate = new Date('2026-09-01T00:00:00+07:00').getTime();
+    
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const difference = targetDate - now;
+
+      if (difference <= 0) {
+        clearInterval(interval);
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      } else {
+        setTimeLeft({
+          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+          minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+          seconds: Math.floor((difference % (1000 * 60)) / 1000)
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     const fetchCounts = async () => {
       const { data, error } = await supabase
@@ -237,19 +264,19 @@ export default function Home() {
                         </div>
                         <div className="grid grid-cols-4 gap-2 sm:gap-3 text-center" id="countdownTimer">
                             <div className="bg-slate-900/60 rounded-2xl p-2 sm:p-3 border border-white/10">
-                                <span className="block text-2xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="days">00</span>
+                                <span className="block text-2xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="days">{String(timeLeft.days).padStart(2, '0')}</span>
                                 <span className="text-[10px] sm:text-xs text-sky-200 uppercase font-semibold">Hari</span>
                             </div>
                             <div className="bg-slate-900/60 rounded-2xl p-2 sm:p-3 border border-white/10">
-                                <span className="block text-2xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="hours">00</span>
+                                <span className="block text-2xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="hours">{String(timeLeft.hours).padStart(2, '0')}</span>
                                 <span className="text-[10px] sm:text-xs text-sky-200 uppercase font-semibold">Jam</span>
                             </div>
                             <div className="bg-slate-900/60 rounded-2xl p-2 sm:p-3 border border-white/10">
-                                <span className="block text-2xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="minutes">00</span>
+                                <span className="block text-2xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="minutes">{String(timeLeft.minutes).padStart(2, '0')}</span>
                                 <span className="text-[10px] sm:text-xs text-sky-200 uppercase font-semibold">Menit</span>
                             </div>
                             <div className="bg-slate-900/60 rounded-2xl p-2 sm:p-3 border border-white/10">
-                                <span className="block text-2xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="seconds">00</span>
+                                <span className="block text-2xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="seconds">{String(timeLeft.seconds).padStart(2, '0')}</span>
                                 <span className="text-[10px] sm:text-xs text-sky-200 uppercase font-semibold">Detik</span>
                             </div>
                         </div>

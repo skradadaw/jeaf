@@ -95,10 +95,32 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
                       peserta.nama_anak.charAt(0).toUpperCase()
                     )}
                   </div>
-                  {peserta.status_kehadiran === 'Hadir' && (
-                    <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center shadow-md border-[3px] border-white">
-                      <i className="fa-solid fa-check text-white text-xs"></i>
-                    </div>
+                  {peserta.foto_url && (
+                    <button 
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          const toastId = toast.loading('Mengunduh foto...');
+                          const response = await fetch(peserta.foto_url);
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `Foto_${peserta.nama_anak.replace(/\s+/g, '_')}_${peserta.no_peserta || peserta.id.split('-')[0]}.jpg`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          window.URL.revokeObjectURL(url);
+                          toast.success('Foto berhasil diunduh!', { id: toastId });
+                        } catch (err) {
+                          toast.error('Gagal mengunduh foto peserta');
+                        }
+                      }}
+                      title="Download Foto Peserta"
+                      className="absolute -bottom-2 -right-2 w-9 h-9 rounded-full bg-[#0ea5e9] hover:bg-[#0284c7] transition-colors flex items-center justify-center shadow-md border-[3px] border-white text-white cursor-pointer group z-20"
+                    >
+                      <i className="fa-solid fa-download text-[11px] group-hover:scale-110 transition-transform"></i>
+                    </button>
                   )}
                 </div>
 
