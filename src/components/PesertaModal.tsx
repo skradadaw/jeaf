@@ -144,7 +144,7 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
                       </div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">No. Tiket</p>
                     </div>
-                    <p className="font-bold text-slate-700 text-sm font-mono truncate">{peserta.id.split('-')[0].toUpperCase()}</p>
+                    <p className="font-bold text-slate-700 text-sm font-mono truncate">{peserta.no_peserta || peserta.id.split('-')[0].toUpperCase()}</p>
                   </div>
 
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center">

@@ -203,7 +203,7 @@ export default function DashboardPage() {
                         <div className="min-w-0">
                           <p className="font-semibold text-sm text-slate-800 truncate">{reg.nama_anak}</p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <p className="text-[11px] text-slate-500 font-mono">{reg.id.split('-')[0].toUpperCase()}</p>
+                            <p className="text-[11px] text-slate-500 font-mono">{reg.no_peserta || reg.id.split('-')[0].toUpperCase()}</p>
                             <span className="w-1 h-1 rounded-full bg-slate-300"></span>
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${getCabangColor(reg.cabang_lomba)}`}>{reg.cabang_lomba}</span>
                           </div>

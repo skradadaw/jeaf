@@ -256,7 +256,7 @@ export default function DaftarPage() {
                                             </div>
                                             <div>
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">ID Tiket</p>
-                                                <p className="font-mono font-bold text-slate-700 text-sm bg-slate-200/50 px-2.5 py-1 rounded-lg inline-block">{registeredData.id.split('-')[0].toUpperCase()}</p>
+                                                <p className="font-mono font-bold text-slate-700 text-sm bg-slate-200/50 px-2.5 py-1 rounded-lg inline-block">{registeredData.no_peserta || registeredData.id.split('-')[0].toUpperCase()}</p>
                                             </div>
                                         </div>
                                         
@@ -273,7 +273,7 @@ export default function DaftarPage() {
                             {/* Actions */}
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-lg mx-auto">
                                 <a 
-                                    href={`https://wa.me/6283820741280?text=Halo%20Admin%2C%20saya%20ingin%20konfirmasi%20pendaftaran%20ananda%20*${encodeURIComponent(registeredData.nama_anak)}*%20untuk%20lomba%20*${encodeURIComponent(registeredData.cabang_lomba)}*.%20ID%20Pendaftaran%3A%20${registeredData.id.split('-')[0]}`} 
+                                    href={`https://wa.me/6283820741280?text=Halo%20Admin%2C%20saya%20ingin%20konfirmasi%20pendaftaran%20ananda%20*${encodeURIComponent(registeredData.nama_anak)}*%20untuk%20lomba%20*${encodeURIComponent(registeredData.cabang_lomba)}*.%20ID%20Pendaftaran%3A%20${registeredData.no_peserta || registeredData.id.split('-')[0].toUpperCase()}`} 
                                     target="_blank" 
                                     rel="noopener noreferrer" 
                                     className="w-full sm:w-auto flex-1 px-6 py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white rounded-2xl font-bold transition-all shadow-[0_8px_16px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2.5 hover:-translate-y-1 active:translate-y-0"

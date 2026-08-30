@@ -169,7 +169,7 @@ export default function ScanPage() {
                 <i className="fa-solid fa-check"></i>
               </div>
               <h2 className="text-white font-bold text-2xl mb-1">{scannedData.nama_anak}</h2>
-              <p className="text-emerald-400 font-mono text-sm mb-4">{scannedData.id.split('-')[0].toUpperCase()}</p>
+              <p className="text-emerald-400 font-mono text-sm mb-4">{scannedData.no_peserta || scannedData.id.split('-')[0].toUpperCase()}</p>
               
               <div className="bg-slate-900 rounded-xl p-4 text-left space-y-2 mb-6 border border-slate-800">
                 <div>
