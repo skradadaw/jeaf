@@ -4,6 +4,7 @@ import DashboardCard from '@/components/DashboardCard';
 import BadgeStatus from '@/components/BadgeStatus';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function DashboardPage() {
   const [registrations, setRegistrations] = useState<any[]>([]);
@@ -22,6 +23,28 @@ export default function DashboardPage() {
       setLoading(false);
     }
     fetchData();
+
+    // Subscribe ke realtime changes untuk update otomatis tanpa reload
+    const channel = supabase
+      .channel('realtime-dashboard-pendaftar')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pendaftar' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setRegistrations((prev) => [payload.new, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setRegistrations((prev) => prev.map(reg => reg.id === payload.new.id ? payload.new : reg));
+          } else if (payload.eventType === 'DELETE') {
+            setRegistrations((prev) => prev.filter(reg => reg.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const getStatusType = (status: string) => {
@@ -39,7 +62,16 @@ export default function DashboardPage() {
 
   const hadirCount = registrations.filter(r => r.status_kehadiran === 'Hadir').length;
   const persentaseHadir = totalPendaftar > 0 ? ((hadirCount / totalPendaftar) * 100).toFixed(1) : "0";
-  const riwayatKehadiran = registrations.filter(r => r.status_kehadiran === 'Hadir').slice(0, 5);
+  
+  // Mengambil riwayat yang hadir, diurutkan berdasarkan waktu_kehadiran (jika ada) atau created_at
+  const riwayatKehadiran = [...registrations]
+    .filter(r => r.status_kehadiran === 'Hadir')
+    .sort((a, b) => {
+      const timeA = a.waktu_kehadiran ? new Date(a.waktu_kehadiran).getTime() : new Date(a.created_at).getTime();
+      const timeB = b.waktu_kehadiran ? new Date(b.waktu_kehadiran).getTime() : new Date(b.created_at).getTime();
+      return timeB - timeA; // Descending
+    })
+    .slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -134,26 +166,42 @@ export default function DashboardPage() {
               <i className="fa-solid fa-clock-rotate-left text-slate-400"></i> Riwayat Kehadiran
             </h3>
             
-            <div className="space-y-3">
-              {riwayatKehadiran.length === 0 ? (
-                <div className="text-center py-6 text-slate-500 text-sm">
-                  Belum ada peserta yang hadir
-                </div>
-              ) : (
-                riwayatKehadiran.map((reg, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 rounded-xl border border-emerald-100 bg-emerald-50/50 hover:bg-emerald-50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs">
-                        <i className="fa-solid fa-check"></i>
+            <div className="space-y-3 overflow-hidden">
+              <AnimatePresence mode="popLayout" initial={false}>
+                {riwayatKehadiran.length === 0 ? (
+                  <motion.div 
+                    key="empty"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="text-center py-6 text-slate-500 text-sm"
+                  >
+                    Belum ada peserta yang hadir
+                  </motion.div>
+                ) : (
+                  riwayatKehadiran.map((reg) => (
+                    <motion.div 
+                      layout
+                      key={reg.id} 
+                      initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                      className="flex items-center justify-between p-3 rounded-xl border border-emerald-100 bg-emerald-50/50 hover:bg-emerald-50 transition-colors mb-3"
+                    >
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs shrink-0">
+                          <i className="fa-solid fa-check"></i>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-slate-800 truncate">{reg.nama_anak}</p>
+                          <p className="text-[11px] text-slate-500 font-mono">{reg.id.split('-')[0].toUpperCase()}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-sm text-slate-800 line-clamp-1">{reg.nama_anak}</p>
-                        <p className="text-[11px] text-slate-500 font-mono">{reg.id.split('-')[0].toUpperCase()}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
+                    </motion.div>
+                  ))
+                )}
+              </AnimatePresence>
             </div>
           </div>
 

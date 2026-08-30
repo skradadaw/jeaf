@@ -9,6 +9,7 @@ CREATE TABLE public.pendaftar (
     cabang_lomba TEXT NOT NULL,
     nama_ortu TEXT NOT NULL,
     no_wa TEXT NOT NULL,
+    no_wa_pembimbing TEXT,
     foto_url TEXT,
     minat_sekolah TEXT,
     status_pembayaran TEXT DEFAULT 'Menunggu' NOT NULL,
@@ -29,6 +30,21 @@ WITH CHECK (true);
 CREATE POLICY "Izinkan panitia membaca data" 
 ON public.pendaftar 
 FOR SELECT 
+TO anon 
+USING (true);
+
+-- Izinkan anon untuk MENGUBAH (UPDATE) data pendaftar (untuk mengubah status kehadiran)
+CREATE POLICY "Izinkan panitia mengubah data" 
+ON public.pendaftar 
+FOR UPDATE 
+TO anon 
+USING (true)
+WITH CHECK (true);
+
+-- Izinkan anon untuk MENGHAPUS (DELETE) data pendaftar
+CREATE POLICY "Izinkan panitia menghapus data" 
+ON public.pendaftar 
+FOR DELETE 
 TO anon 
 USING (true);
 
