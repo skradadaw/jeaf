@@ -21,7 +21,7 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans flex text-slate-800">
+    <div className="min-h-screen bg-[#F8FAFC] font-inter flex text-slate-800">
       
       {/* Sidebar Desktop */}
       <aside className="hidden lg:flex flex-col w-72 bg-white/70 backdrop-blur-xl border-r border-slate-200/60 shadow-sm z-20">
@@ -32,7 +32,7 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
                 </div>
             </div>
             <div>
-                <h2 className="text-xl font-bold font-bubbly text-slate-800">JinGa Panel</h2>
+                <h2 className="text-xl font-bold tracking-tight text-slate-800">JinGa Panel</h2>
                 <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Festival 2026</p>
             </div>
         </div>
@@ -76,7 +76,7 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
                         🎪
                     </div>
                 </div>
-                <h2 className="text-lg font-bold font-bubbly text-slate-800">JinGa Panel</h2>
+                <h2 className="text-lg font-bold tracking-tight text-slate-800">JinGa Panel</h2>
             </div>
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600 focus:outline-none">
                 <i className={`fa-solid ${isMobileMenuOpen ? 'fa-xmark' : 'fa-bars'}`}></i>
@@ -119,17 +119,17 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
         {/* Topbar Desktop */}
         <header className="hidden lg:flex bg-white/40 backdrop-blur-md border-b border-slate-200/50 px-8 py-4 items-center justify-between z-10 sticky top-0">
             <div>
-                <h1 className="text-2xl font-bold font-bubbly text-slate-800">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-800">
                     {menuItems.find(i => pathname.startsWith(i.path))?.name || 'Overview'}
                 </h1>
                 <p className="text-xs text-slate-500 font-medium mt-0.5"><i className="fa-solid fa-circle-check text-emerald-500 mr-1"></i> Database Terhubung (Supabase)</p>
             </div>
             
             <div className="flex items-center gap-4">
-                <div className="relative">
-                    <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                    <input type="text" placeholder="Cari nama peserta..." className="pl-9 pr-4 py-2 bg-white/60 border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:bg-white w-64 transition-all" />
-                </div>
+                <Link href="/panitia/scan" className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-600 hover:to-sky-600 text-white px-5 py-2.5 rounded-full font-bold text-sm shadow-md shadow-indigo-500/20 transition-all hover:-translate-y-0.5 group">
+                    <i className="fa-solid fa-qrcode group-hover:scale-110 transition-transform"></i>
+                    <span>Scan Tiket Cepat</span>
+                </Link>
                 <div className="w-10 h-10 rounded-full bg-sky-100 border-2 border-white shadow-sm flex items-center justify-center text-sky-600 font-bold overflow-hidden">
                     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" alt="Admin" className="w-full h-full object-cover" />
                 </div>

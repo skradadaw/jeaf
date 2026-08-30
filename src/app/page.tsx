@@ -8,6 +8,7 @@ export default function Home() {
   const [activeFilter, setActiveFilter] = useState('Semua');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [participantCounts, setParticipantCounts] = useState<Record<string, number>>({});
+  const [activeFaq, setActiveFaq] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -469,58 +470,58 @@ export default function Home() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 
-                
-                <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/15 text-center card-3d-hover">
-                    <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-400/20 text-amber-400 flex items-center justify-center text-3xl mb-4 border border-amber-400/30 shadow-gold-glow">
-                        🏆
-                    </div>
-                    <h3 className="text-lg font-bold font-bubbly text-amber-300 mb-2">Trofi Juara 1, 2, 3</h3>
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                        Piala eksklusif berkarakter JinGa Explorer + Juara Harapan 1, 2, 3 di setiap cabang lomba.
-                    </p>
-                </div>
-
-                
+                {/* Card 1: Uang Pembinaan */}
                 <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/15 text-center card-3d-hover">
                     <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-400/20 text-emerald-400 flex items-center justify-center text-3xl mb-4 border border-emerald-400/30 shadow-green-glow">
                         💵
                     </div>
                     <h3 className="text-lg font-bold font-bubbly text-emerald-300 mb-2">Tabungan Pendidikan</h3>
                     <p className="text-xs text-slate-300 leading-relaxed">
-                        Uang pembinaan jutaan rupiah bagi para juara sebagai wujud apresiasi semangat belajar ananda.
+                        Uang pembinaan senilai total jutaan rupiah bagi para juara sebagai wujud apresiasi semangat belajar ananda.
                     </p>
                 </div>
 
-                
+                {/* Card 2: Piala */}
+                <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/15 text-center card-3d-hover">
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-400/20 text-amber-400 flex items-center justify-center text-3xl mb-4 border border-amber-400/30 shadow-gold-glow">
+                        🏆
+                    </div>
+                    <h3 className="text-lg font-bold font-bubbly text-amber-300 mb-2">Piala Kejuaraan</h3>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                        Piala eksklusif bagi para pemenang 1, 2, 3 sebagai bentuk apresiasi tertinggi atas keberanian dan prestasi ananda.
+                    </p>
+                </div>
+
+                {/* Card 3: Sertifikat */}
                 <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/15 text-center card-3d-hover">
                     <div className="w-16 h-16 mx-auto rounded-2xl bg-sky-400/20 text-sky-400 flex items-center justify-center text-3xl mb-4 border border-sky-400/30">
                         📜
                     </div>
-                    <h3 className="text-lg font-bold font-bubbly text-sky-300 mb-2">Sertifikat Ber-Barcode</h3>
+                    <h3 className="text-lg font-bold font-bubbly text-sky-300 mb-2">Sertifikat Penghargaan</h3>
                     <p className="text-xs text-slate-300 leading-relaxed">
-                        Sertifikat penghargaan resmi ber-barcode verifikasi untuk seluruh peserta dan guru pendamping.
+                        Sertifikat penghargaan resmi keikutsertaan festival untuk seluruh pendaftar, peserta didik, dan guru pendamping.
                     </p>
                 </div>
 
-                
+                {/* Card 4: Voucher Makanan */}
                 <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/15 text-center card-3d-hover">
                     <div className="w-16 h-16 mx-auto rounded-2xl bg-red-400/20 text-red-400 flex items-center justify-center text-3xl mb-4 border border-red-400/30">
-                        🎒
+                        🎫
                     </div>
-                    <h3 className="text-lg font-bold font-bubbly text-red-300 mb-2">Explorer Goodie Bag</h3>
+                    <h3 className="text-lg font-bold font-bubbly text-red-300 mb-2">Voucher Makanan Gratis</h3>
                     <p className="text-xs text-slate-300 leading-relaxed">
-                        Topi petualang JinGa, snack sehat bergizi, stiker edisi terbatas, dan voucher edukasi SD Plus 3.
+                        Nikmati keseruan acara dengan voucher makan gratis yang bisa ditukarkan di berbagai stand kuliner festival JinGa!
                     </p>
                 </div>
 
             </div>
 
             
-            <div className="mt-12 bg-gradient-to-r from-amber-500/20 via-amber-400/30 to-amber-500/20 p-6 sm:p-8 rounded-3xl border-2 border-amber-400/40 text-center max-w-2xl mx-auto shadow-gold-glow">
-                <span className="text-4xl block mb-2">👑</span>
-                <h3 className="text-2xl font-bold font-bubbly text-amber-300 mb-2">Piala Bergilir Juara Umum Sekolah TK/RA</h3>
+            <div className="mt-12 bg-gradient-to-r from-emerald-500/20 via-emerald-400/30 to-emerald-500/20 p-6 sm:p-8 rounded-3xl border-2 border-emerald-400/40 text-center max-w-2xl mx-auto shadow-green-glow">
+                <span className="text-4xl block mb-2">🏫</span>
+                <h3 className="text-2xl font-bold font-bubbly text-emerald-300 mb-2">Hadiah Utama: Potongan Biaya Bangunan SD!</h3>
                 <p className="text-xs sm:text-sm text-slate-200">
-                    Sekolah TK/RA dengan perolehan medali juara terbanyak akan membawa pulang <strong>Trofi Bergilir Bergengsi &quot;The Supreme JinGa Explorer School 2026&quot;</strong>!
+                    Bagi para juara, dapatkan <strong>Potongan Khusus Dana Sumbangan Pendidikan (DSP)</strong> senilai jutaan rupiah untuk melanjutkan pendidikan terbaik di <strong>SD Plus 3 Al-Muhajirin</strong>!
                 </p>
             </div>
 
@@ -570,8 +571,8 @@ export default function Home() {
                     <div className="flex flex-col md:flex-row-reverse items-center justify-between gap-6">
                         <div className="w-full md:w-5/12 text-center md:text-left">
                             <span className="inline-block px-3 py-1 bg-emerald-500 text-white font-extrabold text-xs rounded-full mb-1">08.00 - 08.30 WIB</span>
-                            <h4 className="text-lg font-bold font-bubbly text-slate-900">Opening Ceremony & Senam Ceria</h4>
-                            <p className="text-xs text-slate-600">Pelepasan balon cita-cita, pembacaan ayat suci Al-Qur&apos;an, dan pemanasan senam anak JinGa.</p>
+                            <h4 className="text-lg font-bold font-bubbly text-slate-900">Opening Ceremony</h4>
+                            <p className="text-xs text-slate-600">Pembacaan ayat suci Al-Qur&apos;an, sambutan, dan prosesi pelepasan balon cita-cita.</p>
                         </div>
                         <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-md z-10 ring-4 ring-white">
                             2
@@ -584,7 +585,7 @@ export default function Home() {
                     
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="w-full md:w-5/12 text-center md:text-right">
-                            <span className="inline-block px-3 py-1 bg-sky-500 text-white font-extrabold text-xs rounded-full mb-1">08.30 - 11.30 WIB</span>
+                            <span className="inline-block px-3 py-1 bg-sky-500 text-white font-extrabold text-xs rounded-full mb-1">08.30 - 10.30 WIB</span>
                             <h4 className="text-lg font-bold font-bubbly text-slate-900">Ekspedisi Lomba Serentak</h4>
                             <p className="text-xs text-slate-600">Pelaksanaan 8 cabang lomba di zona kelas ber-AC dan arena outdoor yang nyaman.</p>
                         </div>
@@ -592,29 +593,29 @@ export default function Home() {
                             3
                         </div>
                         <div className="w-full md:w-5/12 text-center md:text-left text-xs text-slate-500 bg-white p-3 rounded-2xl shadow-sm border border-sky-100">
-                            🏫 Zona 1 s/d Zona 8
+                            🏫 Ruang Kelas SD Plus 3 Al-Muhajirin
                         </div>
                     </div>
 
                     
                     <div className="flex flex-col md:flex-row-reverse items-center justify-between gap-6">
                         <div className="w-full md:w-5/12 text-center md:text-left">
-                            <span className="inline-block px-3 py-1 bg-red-500 text-white font-extrabold text-xs rounded-full mb-1">11.30 - 13.00 WIB</span>
-                            <h4 className="text-lg font-bold font-bubbly text-slate-900">Ishoma & Dongeng Edukasi Islami</h4>
-                            <p className="text-xs text-slate-600">Shalat Dzuhur berjamaah, makan siang bersama, dan pertunjukan mendongeng bersama Kakak Pendongeng Nasional.</p>
+                            <span className="inline-block px-3 py-1 bg-red-500 text-white font-extrabold text-xs rounded-full mb-1">10.30 - 11.30 WIB</span>
+                            <h4 className="text-lg font-bold font-bubbly text-slate-900">Hiburan Edukasi Islami & Snack Time</h4>
+                            <p className="text-xs text-slate-600">Istirahat sejenak menikmati jajanan dari voucher sambil menonton berbagai penampilan dan hiburan edukatif yang seru di panggung utama.</p>
                         </div>
                         <div className="w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center font-bold text-sm shadow-md z-10 ring-4 ring-white">
                             4
                         </div>
                         <div className="w-full md:w-5/12 text-center md:text-right text-xs text-slate-500 bg-white p-3 rounded-2xl shadow-sm border border-sky-100">
-                            🕌 Masjid Sekolah & Aula
+                            🎪 Area Panggung & Lapangan Hijau
                         </div>
                     </div>
 
                     
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="w-full md:w-5/12 text-center md:text-right">
-                            <span className="inline-block px-3 py-1 bg-amber-500 text-slate-900 font-extrabold text-xs rounded-full mb-1">13.00 - Selesai</span>
+                            <span className="inline-block px-3 py-1 bg-amber-500 text-slate-900 font-extrabold text-xs rounded-full mb-1">11.30 - 12.00 WIB</span>
                             <h4 className="text-lg font-bold font-bubbly text-slate-900">Awarding & Penyerahan Trofi</h4>
                             <p className="text-xs text-slate-600">Pengumuman juara lomba, penyerahan piala bergilir juara umum, dan foto bersama seluruh kontingen.</p>
                         </div>
@@ -658,7 +659,7 @@ export default function Home() {
                             </div>
                             <div>
                                 <h4 className="text-sm font-bold text-slate-800">Alamat Sekolah</h4>
-                                <p className="text-xs text-slate-600">Kompleks SD Plus 3 Al-Muhajirin (Jl. Pendidikan Islami No. 3)</p>
+                                <p className="text-xs text-slate-600">Jl. Ipik Gandamanah No. 33, Ciseureuh, Purwakarta, Jawa Barat</p>
                             </div>
                         </div>
 
@@ -668,7 +669,11 @@ export default function Home() {
                             </div>
                             <div>
                                 <h4 className="text-sm font-bold text-slate-800">Call Center Panitia</h4>
-                                <p className="text-xs text-slate-600">+62 812-3456-7890 (Admin Pendaftaran) / +62 898-7654-3210 (Juknis)</p>
+                                <p className="text-xs text-slate-600">
+                                    <a href="https://wa.me/6281234567890" target="_blank" rel="noreferrer" className="font-semibold text-emerald-600 hover:text-emerald-700 hover:underline transition-all">
+                                        +62 812-3456-7890
+                                    </a> (Admin Konfirmasi Pendaftaran)
+                                </p>
                             </div>
                         </div>
 
@@ -678,7 +683,7 @@ export default function Home() {
                             </div>
                             <div>
                                 <h4 className="text-sm font-bold text-slate-800">Waktu Pelaksanaan</h4>
-                                <p className="text-xs text-slate-600">Sabtu, 24 Oktober 2026 • Pukul 07.00 WIB s.d Selesai</p>
+                                <p className="text-xs text-slate-600">Sabtu, 10 Oktober 2026 • Pukul 07.00 WIB s.d Selesai</p>
                             </div>
                         </div>
                     </div>
@@ -691,7 +696,7 @@ export default function Home() {
                             <i className="fa-solid fa-map-marked-alt text-5xl text-sky-500 mb-3 animate-bounce"></i>
                             <h4 className="font-bubbly font-bold text-slate-800 text-lg">Peta Lokasi Kampus</h4>
                             <p className="text-xs text-slate-500 max-w-sm mb-4">Akses mudah dijangkau dari pusat kota dengan fasilitas drop-off area bus rombongan.</p>
-                            <a href="https://maps.google.com" target="_blank" className="px-5 py-2.5 rounded-xl bg-sky-600 text-white font-bold text-xs shadow hover:bg-sky-500 transition-colors flex items-center gap-2">
+                            <a href="https://maps.app.goo.gl/tHPfgB7Wq1CMPcMd6" target="_blank" className="px-5 py-2.5 rounded-xl bg-sky-600 text-white font-bold text-xs shadow hover:bg-sky-500 transition-colors flex items-center gap-2">
                                 <i className="fa-solid fa-arrow-up-right-from-square"></i> Buka Petunjuk Arah Google Maps
                             </a>
                         </div>
@@ -723,46 +728,94 @@ export default function Home() {
                 
                 
                 <div className="border border-slate-200 rounded-2xl p-5 hover:border-sky-300 transition-colors bg-slate-50/50">
-                    <button  className="w-full flex items-center justify-between text-left font-bold text-sm sm:text-base text-slate-800 focus:outline-none">
+                    <button onClick={() => setActiveFaq(activeFaq === 1 ? null : 1)} className="w-full flex items-center justify-between text-left font-bold text-sm sm:text-base text-slate-800 focus:outline-none">
                         <span>Apakah 1 anak boleh mengikuti lebih dari 1 cabang lomba?</span>
-                        <i className="fa-solid fa-chevron-down text-sky-600 transition-transform" id="faqIcon-1"></i>
+                        <i className={`fa-solid fa-chevron-down text-sky-600 transition-transform ${activeFaq === 1 ? 'rotate-180' : ''}`}></i>
                     </button>
-                    <div id="faqContent-1" className="hidden pt-3 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
-                        Boleh, asalkan jadwal perlombaan tidak bentrok secara bersamaan. Silakan konfirmasi ke admin panitia saat memilih lomba untuk pengaturan sesi tampil ananda.
-                    </div>
+                    <AnimatePresence>
+                        {activeFaq === 1 && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                                className="overflow-hidden"
+                            >
+                                <div className="pt-3 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
+                                    Mohon maaf, tidak boleh. Untuk menjaga keadilan dan fokus ananda, 1 anak hanya diperkenankan memilih dan mengikuti 1 cabang lomba saja.
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 
                 <div className="border border-slate-200 rounded-2xl p-5 hover:border-sky-300 transition-colors bg-slate-50/50">
-                    <button  className="w-full flex items-center justify-between text-left font-bold text-sm sm:text-base text-slate-800 focus:outline-none">
+                    <button onClick={() => setActiveFaq(activeFaq === 2 ? null : 2)} className="w-full flex items-center justify-between text-left font-bold text-sm sm:text-base text-slate-800 focus:outline-none">
                         <span>Bagaimana sistem penilaian juri?</span>
-                        <i className="fa-solid fa-chevron-down text-sky-600 transition-transform" id="faqIcon-2"></i>
+                        <i className={`fa-solid fa-chevron-down text-sky-600 transition-transform ${activeFaq === 2 ? 'rotate-180' : ''}`}></i>
                     </button>
-                    <div id="faqContent-2" className="hidden pt-3 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
-                        Dewan juri terdiri dari praktisi pendidikan anak usia dini independen dan ustadz/ustadzah profesional. Keputusan dewan juri bersifat mutlak dan berpedoman penuh pada Juknis Resmi.
-                    </div>
+                    <AnimatePresence>
+                        {activeFaq === 2 && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                                className="overflow-hidden"
+                            >
+                                <div className="pt-3 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
+                                    Dewan juri terdiri dari praktisi pendidikan anak usia dini independen dan ustadz/ustadzah profesional. Keputusan dewan juri bersifat mutlak dan berpedoman penuh pada Juknis Resmi.
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 
                 <div className="border border-slate-200 rounded-2xl p-5 hover:border-sky-300 transition-colors bg-slate-50/50">
-                    <button  className="w-full flex items-center justify-between text-left font-bold text-sm sm:text-base text-slate-800 focus:outline-none">
-                        <span>Apakah seluruh peserta mendapatkan medali/sertifikat?</span>
-                        <i className="fa-solid fa-chevron-down text-sky-600 transition-transform" id="faqIcon-3"></i>
+                    <button onClick={() => setActiveFaq(activeFaq === 3 ? null : 3)} className="w-full flex items-center justify-between text-left font-bold text-sm sm:text-base text-slate-800 focus:outline-none">
+                        <span>Apa saja fasilitas dan hadiah yang didapatkan peserta?</span>
+                        <i className={`fa-solid fa-chevron-down text-sky-600 transition-transform ${activeFaq === 3 ? 'rotate-180' : ''}`}></i>
                     </button>
-                    <div id="faqContent-3" className="hidden pt-3 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
-                        Ya! Seluruh anak yang terdaftar akan menerima Sertifikat Kepesertaan Resmi Ber-Barcode dan Goodie Bag Petualang JinGa sebagai bentuk apresiasi partisipasi positif.
-                    </div>
+                    <AnimatePresence>
+                        {activeFaq === 3 && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                                className="overflow-hidden"
+                            >
+                                <div className="pt-3 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
+                                    Seluruh peserta akan mendapatkan Sertifikat Kepesertaan Resmi dan voucher makanan gratis. Bagi para juara, tersedia piala eksklusif, tabungan pendidikan, serta Hadiah Utama berupa Potongan Biaya Bangunan (DSP) di SD Plus 3 Al-Muhajirin!
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 
                 <div className="border border-slate-200 rounded-2xl p-5 hover:border-sky-300 transition-colors bg-slate-50/50">
-                    <button  className="w-full flex items-center justify-between text-left font-bold text-sm sm:text-base text-slate-800 focus:outline-none">
-                        <span>Bagaimana metode pembayaran registrasi?</span>
-                        <i className="fa-solid fa-chevron-down text-sky-600 transition-transform" id="faqIcon-4"></i>
+                    <button onClick={() => setActiveFaq(activeFaq === 4 ? null : 4)} className="w-full flex items-center justify-between text-left font-bold text-sm sm:text-base text-slate-800 focus:outline-none">
+                        <span>Bagaimana cara mendaftar dan melakukan pembayaran?</span>
+                        <i className={`fa-solid fa-chevron-down text-sky-600 transition-transform ${activeFaq === 4 ? 'rotate-180' : ''}`}></i>
                     </button>
-                    <div id="faqContent-4" className="hidden pt-3 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
-                        Pembayaran dapat dilakukan via Transfer Bank (BSI / BCA / Mandiri) atau pembayaran tunai langsung di Sekretariat Panitia SD Plus 3 Al-Muhajirin. Bukti transfer cukup dikirimkan via WhatsApp.
-                    </div>
+                    <AnimatePresence>
+                        {activeFaq === 4 && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                                className="overflow-hidden"
+                            >
+                                <div className="pt-3 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
+                                    Pendaftaran dapat dilakukan secara praktis melalui tombol "Daftar Sekarang" di website ini. Pembayaran dapat ditransfer atau dibayar tunai langsung di Sekretariat SD Plus 3 Al-Muhajirin. Silakan hubungi Admin Konfirmasi Pendaftaran jika ada kendala.
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
             </div>

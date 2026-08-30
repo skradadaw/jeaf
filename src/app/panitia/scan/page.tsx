@@ -78,9 +78,10 @@ export default function ScanPage() {
       }
 
       // 3. Mark as attended
+      const now = new Date().toISOString();
       const { error: updateError } = await supabase
         .from('pendaftar')
-        .update({ status_kehadiran: 'Hadir' })
+        .update({ status_kehadiran: 'Hadir', waktu_kehadiran: now })
         .eq('id', code);
 
       if (updateError) {

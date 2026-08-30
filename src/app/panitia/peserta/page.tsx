@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase';
 import BadgeStatus from '@/components/BadgeStatus';
 import Link from 'next/link';
 import PesertaModal from '@/components/PesertaModal';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { toast } from 'react-hot-toast';
 
 export default function DataPesertaPage() {
   const [registrations, setRegistrations] = useState<any[]>([]);
@@ -13,11 +15,25 @@ export default function DataPesertaPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPeserta, setSelectedPeserta] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{isOpen: boolean, id: string, name: string}>({ isOpen: false, id: '', name: '' });
   
   // Data options for filter
   const cabangLombaList = [
     'Semua', 'Adzan', 'Fashion Show', 'MHQ', 'Karya Kolase', 'Mewarnai', 'Tendangan Penalti', 'Menyanyi Solo'
   ];
+
+  const getCabangColor = (cabang: string) => {
+    switch (cabang) {
+      case 'Adzan': return 'bg-blue-50 text-blue-600 border-blue-200';
+      case 'Fashion Show': return 'bg-pink-50 text-pink-600 border-pink-200';
+      case 'MHQ': return 'bg-purple-50 text-purple-600 border-purple-200';
+      case 'Karya Kolase': return 'bg-orange-50 text-orange-600 border-orange-200';
+      case 'Mewarnai': return 'bg-amber-50 text-amber-600 border-amber-200';
+      case 'Tendangan Penalti': return 'bg-emerald-50 text-emerald-600 border-emerald-200';
+      case 'Menyanyi Solo': return 'bg-rose-50 text-rose-600 border-rose-200';
+      default: return 'bg-slate-50 text-slate-600 border-slate-200';
+    }
+  };
 
   const fetchRegistrations = async () => {
     setLoading(true);
@@ -41,43 +57,51 @@ export default function DataPesertaPage() {
   const toggleKehadiran = async (e: React.MouseEvent, id: string, currentStatus: string) => {
     e.stopPropagation();
     const newStatus = currentStatus === 'Hadir' ? 'Belum Hadir' : 'Hadir';
+    const newWaktu = newStatus === 'Hadir' ? new Date().toISOString() : null;
     
     // Optimistic update
     setRegistrations(prev => 
-      prev.map(reg => reg.id === id ? { ...reg, status_kehadiran: newStatus } : reg)
+      prev.map(reg => reg.id === id ? { ...reg, status_kehadiran: newStatus, waktu_kehadiran: newWaktu } : reg)
     );
 
     const { error } = await supabase
       .from('pendaftar')
-      .update({ status_kehadiran: newStatus })
+      .update({ status_kehadiran: newStatus, waktu_kehadiran: newWaktu })
       .eq('id', id);
 
     if (error) {
       console.error('Error updating status:', error);
-      alert('Gagal mengubah status kehadiran. Pastikan RLS UPDATE sudah diizinkan di Supabase.');
+      toast.error('Gagal mengubah status kehadiran.');
       // Revert if error
       fetchRegistrations();
+    } else {
+      toast.success(`Status ${newStatus === 'Hadir' ? 'berhasil diabsen' : 'dibatalkan'}`);
     }
   };
 
-  const deletePeserta = async (e: React.MouseEvent, id: string, name: string) => {
+  const deletePeserta = (e: React.MouseEvent, id: string, name: string) => {
     e.stopPropagation();
-    const isConfirmed = window.confirm(`Apakah Anda yakin ingin menghapus data peserta "${name}"? Tindakan ini tidak dapat dibatalkan.`);
+    setConfirmDelete({ isOpen: true, id, name });
+  };
+
+  const handleConfirmDelete = async () => {
+    const { id } = confirmDelete;
     
-    if (isConfirmed) {
-      // Optimistic update
-      setRegistrations(prev => prev.filter(reg => reg.id !== id));
+    // Optimistic update
+    setRegistrations(prev => prev.filter(reg => reg.id !== id));
+    setConfirmDelete({ isOpen: false, id: '', name: '' });
 
-      const { error } = await supabase
-        .from('pendaftar')
-        .delete()
-        .eq('id', id);
+    const { error } = await supabase
+      .from('pendaftar')
+      .delete()
+      .eq('id', id);
 
-      if (error) {
-        console.error('Error deleting data:', error);
-        alert('Gagal menghapus data. Pastikan RLS DELETE sudah diizinkan di Supabase.');
-        fetchRegistrations();
-      }
+    if (error) {
+      console.error('Error deleting data:', error);
+      toast.error(`Gagal menghapus data: ${error.message}`);
+      fetchRegistrations();
+    } else {
+      toast.success('Data peserta berhasil dihapus');
     }
   };
 
@@ -102,72 +126,66 @@ export default function DataPesertaPage() {
   return (
     <div className="space-y-6">
       
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">Manajemen Data Peserta</h2>
-          <p className="text-sm text-slate-500 mt-1">Kelola data pendaftaran, cek kehadiran manual, dan hapus data tidak valid.</p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Link href="/panitia/scan" className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2 shadow-sm shadow-indigo-500/20">
-            <i className="fa-solid fa-qrcode"></i> Scan Tiket
-          </Link>
-        </div>
-      </div>
-
-      {/* Toolbar (Filters & Search) */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="relative flex-1 md:w-64">
-            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-            <input 
-              type="text" 
-              placeholder="Cari nama / sekolah..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:bg-white transition-all"
-            />
-          </div>
-          <select 
-            value={filterCabang} 
-            onChange={(e) => setFilterCabang(e.target.value)}
-            className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:bg-white transition-all cursor-pointer"
-          >
-            {cabangLombaList.map(cabang => (
-              <option key={cabang} value={cabang}>{cabang}</option>
-            ))}
-          </select>
-        </div>
+      {/* Data Table Card */}
+      <div className="bg-white rounded-[20px] shadow-sm shadow-slate-200/50 border border-slate-200 overflow-hidden flex flex-col">
         
-        <div className="text-sm font-semibold text-slate-500 bg-slate-100 px-4 py-2 rounded-xl w-full md:w-auto text-center">
-          Total: <span className="text-slate-800">{filteredData.length}</span> Peserta
+        {/* Table Toolbar */}
+        <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row gap-4 items-center justify-between bg-white">
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="relative flex-1 md:w-72">
+              <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+              <input 
+                type="text" 
+                placeholder="Cari nama atau asal sekolah..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition-all"
+              />
+            </div>
+            <div className="relative">
+              <i className="fa-solid fa-filter absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+              <select 
+                value={filterCabang} 
+                onChange={(e) => setFilterCabang(e.target.value)}
+                className="pl-10 pr-8 py-2.5 bg-slate-50 hover:bg-slate-100/50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition-all cursor-pointer appearance-none"
+              >
+                {cabangLombaList.map(cabang => (
+                  <option key={cabang} value={cabang}>{cabang}</option>
+                ))}
+              </select>
+              <i className="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-500 bg-slate-50 border border-slate-100 px-4 py-2.5 rounded-xl w-full md:w-auto justify-center shadow-sm">
+            Total Data: <span className="text-sky-600 font-bold bg-sky-100 px-2 py-0.5 rounded-md">{filteredData.length}</span>
+          </div>
         </div>
-      </div>
 
-      {/* Data Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        {/* Table Content */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse whitespace-nowrap">
             <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-bold">
+              <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
                 <th className="px-6 py-4">ID & Nama Peserta</th>
+                <th className="px-6 py-4">Asal Sekolah</th>
                 <th className="px-6 py-4">Cabang Lomba</th>
                 <th className="px-6 py-4">Kontak (WA)</th>
-                <th className="px-6 py-4">Status Kehadiran</th>
+                <th className="px-6 py-4">Kehadiran</th>
                 <th className="px-6 py-4 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100/80">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center">
+                  <td colSpan={6} className="px-6 py-10 text-center">
                     <i className="fa-solid fa-circle-notch fa-spin text-3xl text-sky-500 mb-3"></i>
                     <p className="text-sm text-slate-500 font-medium">Memuat data peserta...</p>
                   </td>
                 </tr>
               ) : filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-slate-500">
+                  <td colSpan={6} className="px-6 py-10 text-center text-slate-500">
                     <i className="fa-regular fa-folder-open text-4xl mb-3 text-slate-300"></i>
                     <p className="text-sm font-medium">Tidak ada data pendaftar yang cocok.</p>
                   </td>
@@ -176,32 +194,51 @@ export default function DataPesertaPage() {
                 filteredData.map((reg) => (
                   <tr 
                     key={reg.id} 
-                    className="hover:bg-slate-50 transition-colors cursor-pointer group"
+                    className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                     onClick={() => openModal(reg)}
                   >
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center font-bold text-sm shrink-0">
-                          {reg.nama_anak.charAt(0).toUpperCase()}
-                        </div>
+                      <div className="flex items-center gap-4">
+                        <img 
+                          src={`https://api.dicebear.com/7.x/initials/svg?seed=${reg.nama_anak}&backgroundColor=0ea5e9,0284c7`} 
+                          alt={reg.nama_anak} 
+                          className="w-11 h-11 rounded-full shadow-sm border-2 border-white"
+                        />
                         <div>
-                          <p className="font-bold text-slate-800 text-sm">{reg.nama_anak}</p>
-                          <p className="text-xs text-slate-500 font-mono mt-0.5" title={reg.id}>{reg.id.split('-')[0].toUpperCase()}</p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">{reg.asal_sekolah}</p>
+                          <p className="font-bold text-slate-800 text-sm mb-0.5 group-hover:text-sky-600 transition-colors">{reg.nama_anak}</p>
+                          <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-2 py-0.5 rounded-md" title={reg.id}>{reg.id.split('-')[0].toUpperCase()}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-700">
-                      {reg.cabang_lomba}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
+                          <i className="fa-solid fa-school text-[10px]"></i>
+                        </div>
+                        <p className="text-xs font-semibold text-slate-700 truncate max-w-[150px]">{reg.asal_sekolah}</p>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1.5">
-                        <a href={`https://wa.me/${(reg.no_wa || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors w-fit" title="Chat Orang Tua">
-                          <i className="fa-brands fa-whatsapp"></i> Ortu: {reg.no_wa || '-'}
-                        </a>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold border ${getCabangColor(reg.cabang_lomba)}`}>
+                        {reg.cabang_lomba}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-2">
+                        {reg.no_wa && (
+                          <a href={`https://wa.me/${reg.no_wa.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[11px] font-bold text-slate-600 hover:text-emerald-600 group/wa transition-colors w-fit" title="Chat Orang Tua">
+                            <div className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-500 flex items-center justify-center group-hover/wa:bg-emerald-500 group-hover/wa:text-white transition-colors">
+                              <i className="fa-brands fa-whatsapp text-sm"></i>
+                            </div>
+                            Ortu
+                          </a>
+                        )}
                         {reg.no_wa_pembimbing && (
-                          <a href={`https://wa.me/${reg.no_wa_pembimbing.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-600 bg-teal-50 px-2.5 py-1.5 rounded-lg hover:bg-teal-100 transition-colors w-fit" title="Chat Guru/Pembimbing">
-                            <i className="fa-brands fa-whatsapp"></i> Guru: {reg.no_wa_pembimbing}
+                          <a href={`https://wa.me/${reg.no_wa_pembimbing.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[11px] font-bold text-slate-600 hover:text-teal-600 group/wa transition-colors w-fit" title="Chat Guru">
+                            <div className="w-6 h-6 rounded-md bg-teal-50 text-teal-500 flex items-center justify-center group-hover/wa:bg-teal-500 group-hover/wa:text-white transition-colors">
+                              <i className="fa-brands fa-whatsapp text-sm"></i>
+                            </div>
+                            Guru
                           </a>
                         )}
                       </div>
@@ -209,24 +246,32 @@ export default function DataPesertaPage() {
                     <td className="px-6 py-4">
                       <button 
                         onClick={(e) => toggleKehadiran(e, reg.id, reg.status_kehadiran)}
-                        className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-all border ${
+                        className={`relative inline-flex items-center justify-center w-28 h-8 rounded-full transition-all border shadow-sm ${
                           reg.status_kehadiran === 'Hadir' 
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' 
-                            : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                            ? 'bg-emerald-500 border-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-600' 
+                            : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'
                         }`}
-                        title="Klik untuk ubah status kehadiran"
+                        title="Ubah status kehadiran"
                       >
-                        <i className={`fa-solid ${reg.status_kehadiran === 'Hadir' ? 'fa-check-circle' : 'fa-circle-xmark'}`}></i> 
-                        {reg.status_kehadiran === 'Hadir' ? 'Hadir' : 'Belum'}
+                        <span className={`text-xs font-bold ${reg.status_kehadiran === 'Hadir' ? 'ml-3' : 'mr-3'}`}>
+                          {reg.status_kehadiran}
+                        </span>
+                        <div className={`absolute top-1 w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-sm transition-all duration-300 ${
+                          reg.status_kehadiran === 'Hadir' 
+                            ? 'left-1 text-emerald-500' 
+                            : 'right-1 text-slate-400 bg-slate-100'
+                        }`}>
+                          <i className={`fa-solid ${reg.status_kehadiran === 'Hadir' ? 'fa-check' : 'fa-minus'} text-[10px]`}></i>
+                        </div>
                       </button>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <button 
                         onClick={(e) => deletePeserta(e, reg.id, reg.nama_anak)}
-                        className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center mx-auto focus:outline-none focus:ring-2 focus:ring-rose-500/50 opacity-0 group-hover:opacity-100"
-                        title="Hapus Data"
+                        className="w-8 h-8 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-colors inline-flex items-center justify-center"
+                        title="Hapus data peserta"
                       >
-                        <i className="fa-regular fa-trash-can"></i>
+                        <i className="fa-solid fa-trash-can"></i>
                       </button>
                     </td>
                   </tr>
@@ -251,6 +296,15 @@ export default function DataPesertaPage() {
         onClose={() => setIsModalOpen(false)}
         peserta={selectedPeserta}
         onUpdateSuccess={handleUpdateSuccess}
+      />
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog 
+        isOpen={confirmDelete.isOpen}
+        title="Hapus Peserta?"
+        message={`Apakah Anda yakin ingin menghapus data peserta "${confirmDelete.name}"? Tindakan ini tidak dapat dibatalkan.`}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmDelete({ isOpen: false, id: '', name: '' })}
       />
 
     </div>

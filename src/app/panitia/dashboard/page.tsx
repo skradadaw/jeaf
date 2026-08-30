@@ -63,6 +63,39 @@ export default function DashboardPage() {
   const hadirCount = registrations.filter(r => r.status_kehadiran === 'Hadir').length;
   const persentaseHadir = totalPendaftar > 0 ? ((hadirCount / totalPendaftar) * 100).toFixed(1) : "0";
   
+  const getCabangColor = (cabang: string) => {
+    switch (cabang) {
+      case 'Adzan': return 'bg-blue-50 text-blue-600 border-blue-200';
+      case 'Fashion Show': return 'bg-pink-50 text-pink-600 border-pink-200';
+      case 'MHQ': return 'bg-purple-50 text-purple-600 border-purple-200';
+      case 'Karya Kolase': return 'bg-orange-50 text-orange-600 border-orange-200';
+      case 'Mewarnai': return 'bg-amber-50 text-amber-600 border-amber-200';
+      case 'Tendangan Penalti': return 'bg-emerald-50 text-emerald-600 border-emerald-200';
+      case 'Menyanyi Solo': return 'bg-rose-50 text-rose-600 border-rose-200';
+      default: return 'bg-slate-50 text-slate-600 border-slate-200';
+    }
+  };
+
+  // Konfigurasi kuota per cabang lomba (bisa disesuaikan nanti)
+  const kuotaPerCabang: Record<string, number> = {
+    'Adzan': 50,
+    'Fashion Show': 50,
+    'MHQ': 50,
+    'Karya Kolase': 50,
+    'Mewarnai': 50,
+    'Tendangan Penalti': 50,
+    'Menyanyi Solo': 50
+  };
+
+  // Kalkulasi statistik kuota real-time
+  const cabangStats = Object.keys(kuotaPerCabang).map(cabang => {
+    const terisi = registrations.filter(r => r.cabang_lomba === cabang).length;
+    const kuota = kuotaPerCabang[cabang];
+    const sisa = Math.max(0, kuota - terisi);
+    const persentase = kuota > 0 ? ((terisi / kuota) * 100).toFixed(0) : 0;
+    return { cabang, terisi, kuota, sisa, persentase };
+  });
+
   // Mengambil riwayat yang hadir, diurutkan berdasarkan waktu_kehadiran (jika ada) atau created_at
   const riwayatKehadiran = [...registrations]
     .filter(r => r.status_kehadiran === 'Hadir')
@@ -86,80 +119,54 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Table Section */}
+        {/* Kuota Section */}
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold tracking-tight text-slate-900">Pendaftar Terbaru</h3>
-            <button className="text-sm font-semibold text-slate-600 hover:text-slate-900 bg-slate-50 border border-slate-200 hover:bg-slate-100 px-4 py-2 rounded-xl transition-all">Lihat Semua</button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+            <h3 className="text-lg font-bold tracking-tight text-slate-900">Statistik Kuota Lomba</h3>
+            <div className="text-sm font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl flex items-center gap-2">
+              <i className="fa-solid fa-chart-pie text-sky-500"></i> Total: {totalPendaftar} Pendaftar
+            </div>
           </div>
           
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-slate-500 uppercase tracking-wider bg-slate-50 border-y border-slate-200">
-                <tr>
-                  <th className="px-4 py-4 font-semibold">ID / Peserta</th>
-                  <th className="px-4 py-4 font-semibold">Cabang Lomba</th>
-                  <th className="px-4 py-4 font-semibold">Tanggal</th>
-                  <th className="px-4 py-4 font-semibold">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
-                      <i className="fa-solid fa-circle-notch fa-spin mr-2"></i> Memuat data pendaftar...
-                    </td>
-                  </tr>
-                ) : registrations.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
-                      Belum ada pendaftar.
-                    </td>
-                  </tr>
-                ) : (
-                  registrations.map((reg, index) => (
-                    <tr key={index} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors">
-                      <td className="px-4 py-4">
-                        <div className="font-semibold text-slate-900 mb-0.5">{reg.nama_anak}</div>
-                        <div className="text-[11px] text-slate-500 font-mono bg-slate-100 px-2 py-0.5 rounded inline-block">
-                          {reg.id.split('-')[0].toUpperCase()}
-                        </div>
-                        <span className="text-xs text-slate-500 ml-2">{reg.asal_sekolah}</span>
-                      </td>
-                      <td className="px-4 py-3 font-medium text-slate-600">{reg.cabang_lomba}</td>
-                      <td className="px-4 py-3 text-slate-500 text-xs">
-                        {new Date(reg.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </td>
-                      <td className="px-4 py-3">
-                        <BadgeStatus status="Terdaftar" type="lunas" />
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {cabangStats.map(stat => (
+              <div key={stat.cabang} className="bg-slate-50/50 border border-slate-100 hover:border-sky-100 hover:bg-sky-50/30 transition-colors p-4 rounded-xl group relative overflow-hidden">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-sky-700 transition-colors">{stat.cabang}</h4>
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border ${
+                    stat.sisa === 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 
+                    stat.sisa <= 10 ? 'bg-amber-50 text-amber-600 border-amber-100' : 
+                    'bg-emerald-50 text-emerald-600 border-emerald-100'
+                  }`}>
+                    {stat.sisa === 0 ? 'Penuh' : `Sisa ${stat.sisa}`}
+                  </span>
+                </div>
+                
+                <div className="w-full bg-slate-200/60 rounded-full h-2.5 mb-2 overflow-hidden relative">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(100, Number(stat.persentase))}%` }}
+                    transition={{ duration: 1, type: "spring" }}
+                    className={`absolute left-0 top-0 h-full rounded-full ${
+                      stat.sisa === 0 ? 'bg-rose-500' : 
+                      stat.sisa <= 10 ? 'bg-amber-500' : 
+                      'bg-sky-500'
+                    }`} 
+                  />
+                </div>
+                
+                <div className="flex justify-between text-xs font-medium">
+                  <span className="text-slate-500">Terisi: <strong className="text-slate-700">{stat.terisi}</strong></span>
+                  <span className="text-slate-400">Target: {stat.kuota}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
         {/* Quick Stats / Info */}
         <div className="space-y-6">
 
-          {/* Quick Action */}
-          <Link href="/panitia/scan" className="block w-full bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-6 rounded-2xl shadow-lg hover:shadow-indigo-500/25 transition-all hover:-translate-y-1 group relative overflow-hidden">
-            <div className="absolute -right-4 -top-4 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all"></div>
-            <div className="flex items-center gap-4 relative z-10">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl backdrop-blur-sm border border-white/10">
-                <i className="fa-solid fa-qrcode"></i>
-              </div>
-              <div>
-                <h3 className="font-bold text-lg tracking-tight mb-0.5">Mulai Pemindaian</h3>
-                <p className="text-indigo-100 text-sm">Scan tiket untuk absensi</p>
-              </div>
-            </div>
-            <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
-              <i className="fa-solid fa-chevron-right text-xl"></i>
-            </div>
-          </Link>
 
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
             <h3 className="text-base font-bold tracking-tight text-slate-900 mb-4 flex items-center gap-2">
@@ -195,9 +202,22 @@ export default function DashboardPage() {
                         </div>
                         <div className="min-w-0">
                           <p className="font-semibold text-sm text-slate-800 truncate">{reg.nama_anak}</p>
-                          <p className="text-[11px] text-slate-500 font-mono">{reg.id.split('-')[0].toUpperCase()}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-[11px] text-slate-500 font-mono">{reg.id.split('-')[0].toUpperCase()}</p>
+                            <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${getCabangColor(reg.cabang_lomba)}`}>{reg.cabang_lomba}</span>
+                          </div>
                         </div>
                       </div>
+                      
+                      {reg.waktu_kehadiran && (
+                        <div className="shrink-0 ml-3 text-right">
+                          <p className="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-2 py-1 rounded-lg shadow-sm">
+                            <i className="fa-regular fa-clock mr-1"></i>
+                            {new Date(reg.waktu_kehadiran).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      )}
                     </motion.div>
                   ))
                 )}

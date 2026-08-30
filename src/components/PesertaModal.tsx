@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCode from 'react-qr-code';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'react-hot-toast';
 
 interface PesertaModalProps {
   isOpen: boolean;
@@ -40,8 +41,9 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
 
     if (error) {
       console.error('Error updating data:', error);
-      alert(`Gagal menyimpan perubahan: ${error.message}`);
+      toast.error(`Gagal menyimpan perubahan: ${error.message}`);
     } else {
+      toast.success('Data berhasil diperbarui!');
       onUpdateSuccess(formData);
       onClose(); // Tutup modal otomatis jika sukses tersinkronisasi
     }

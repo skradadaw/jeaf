@@ -67,6 +67,9 @@ body {
 }
 
 /* Custom Legacy Classes */
+.font-inter {
+  font-family: var(--font-inter), 'Inter', sans-serif;
+}
 .font-bubbly {
   font-family: var(--font-fredoka), 'Fredoka', cursive, sans-serif;
 }

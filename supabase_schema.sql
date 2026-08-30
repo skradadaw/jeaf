@@ -13,7 +13,8 @@ CREATE TABLE public.pendaftar (
     foto_url TEXT,
     minat_sekolah TEXT,
     status_pembayaran TEXT DEFAULT 'Menunggu' NOT NULL,
-    status_kehadiran TEXT DEFAULT 'Belum Hadir' NOT NULL
+    status_kehadiran TEXT DEFAULT 'Belum Hadir' NOT NULL,
+    waktu_kehadiran TIMESTAMP WITH TIME ZONE
 );
 
 -- Atur kebijakan keamanan (Row Level Security / RLS)
