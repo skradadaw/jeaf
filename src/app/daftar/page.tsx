@@ -342,9 +342,8 @@ export default function DaftarPage() {
                                         value={formData.minatSekolah}
                                         onChange={(val) => setFormData({...formData, minatSekolah: val})}
                                         options={[
-                                            { value: "Ya, Berminat", label: "Ya, Berminat", icon: "fa-solid fa-check", color: "bg-emerald-100 text-emerald-600" },
-                                            { value: "Mungkin", label: "Mungkin", icon: "fa-solid fa-question", color: "bg-amber-100 text-amber-600" },
-                                            { value: "Tidak", label: "Tidak", icon: "fa-solid fa-xmark", color: "bg-rose-100 text-rose-600" },
+                                            { value: "Ya, Berminat", label: "Berminat", icon: "fa-solid fa-check", color: "bg-emerald-100 text-emerald-600" },
+                                            { value: "Masih dalam pertimbangan", label: "Masih dalam pertimbangan", icon: "fa-solid fa-scale-balanced", color: "bg-amber-100 text-amber-600" }
                                         ]} 
                                         required 
                                     />
