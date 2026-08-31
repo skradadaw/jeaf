@@ -110,6 +110,7 @@ export default function DaftarPage() {
                         cabang_lomba: formData.lomba,
                         nama_ortu: formData.namaWali,
                         no_wa: formData.waWali,
+                        no_wa_pembimbing: formData.waGuru,
                         foto_url: fotoUrl,
                         minat_sekolah: formData.minatSekolah,
                         status_pembayaran: 'Menunggu'
