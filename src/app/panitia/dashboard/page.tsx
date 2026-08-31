@@ -109,19 +109,6 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       
-      {/* Header Actions */}
-      <div className="flex justify-end">
-        <a 
-          href="/juknis-jeaf.pdf" 
-          download="Juknis_Jinga_Explorers_Academy_Festival_2026.pdf"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 hover:border-sky-300 hover:bg-sky-50 text-slate-700 hover:text-sky-700 font-bold text-sm rounded-xl transition-all shadow-sm group"
-        >
-          <i className="fa-solid fa-file-pdf text-rose-500 group-hover:scale-110 transition-transform"></i>
-          <span>Download Juknis</span>
-          <i className="fa-solid fa-download text-slate-400 text-xs ml-1"></i>
-        </a>
-      </div>
-
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardCard title="Total Pendaftar" value={totalPendaftar} icon="fa-user-group" color="sky" progress={Number(persentaseTarget)} trend={{ value: `${totalPendaftar}/${targetPeserta} Peserta`, isUp: true }} />

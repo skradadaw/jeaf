@@ -454,7 +454,7 @@ export default function Home() {
                         <p className="text-xs sm:text-sm text-sky-100">Unduh PDF berisi kriteria penilaian juri, tata tertib, dan surat rekomendasi sekolah.</p>
                     </div>
                 </div>
-                <a href="#juknisModal"  className="px-6 py-3 rounded-xl bg-amber-400 text-slate-900 font-extrabold text-xs sm:text-sm shadow hover:bg-amber-300 transition-colors whitespace-nowrap">
+                <a href="/juknis-jeaf.pdf" download="Juknis_JEAF_2026.pdf" className="px-6 py-3 rounded-xl bg-amber-400 text-slate-900 font-extrabold text-xs sm:text-sm shadow hover:bg-amber-300 transition-colors whitespace-nowrap">
                     <i className="fa-solid fa-file-pdf mr-1"></i> Download Juknis (PDF)
                 </a>
             </div>
