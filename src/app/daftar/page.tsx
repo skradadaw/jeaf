@@ -81,6 +81,25 @@ export default function DaftarPage() {
         setIsSubmitting(true);
         
         try {
+            // Cek Duplikat Peserta (1 Peserta 1 Lomba)
+            // Memeriksa kombinasi Nama, Tanggal Lahir, dan Asal Sekolah
+            const { data: existingData, error: checkError } = await supabase
+                .from('pendaftar')
+                .select('id, cabang_lomba')
+                .ilike('nama_anak', formData.namaAnak)
+                .eq('tgl_lahir', formData.tanggalLahir.toISOString())
+                .ilike('asal_sekolah', formData.asalSekolah);
+
+            if (checkError) {
+                throw new Error('Gagal memverifikasi data peserta: ' + checkError.message);
+            }
+            
+            if (existingData && existingData.length > 0) {
+                alert(`Pendaftaran Ditolak: Peserta bernama "${formData.namaAnak}" sudah terdaftar di cabang lomba "${existingData[0].cabang_lomba}". (Satu anak hanya boleh mengikuti maksimal 1 cabang lomba).`);
+                setIsSubmitting(false);
+                return;
+            }
+
             let fotoUrl = null;
             const file = fileInputRef.current?.files?.[0];
             
