@@ -428,12 +428,12 @@ export default function DaftarPage() {
                                     onChange={(val) => setFormData({...formData, lomba: val})}
                                     options={[
                                         { value: "MHQ", label: "Lomba MHQ (Hafalan Al-Qur'an)", icon: "fa-solid fa-book-quran", color: "bg-emerald-100 text-emerald-600" },
-                                        { value: "Kolase", label: "Lomba Karya Kolase", icon: "fa-solid fa-scissors", color: "bg-amber-100 text-amber-600" },
+                                        { value: "Karya Kolase", label: "Lomba Karya Kolase", icon: "fa-solid fa-scissors", color: "bg-amber-100 text-amber-600" },
                                         { value: "Mewarnai", label: "Lomba Mewarnai", icon: "fa-solid fa-palette", color: "bg-rose-100 text-rose-600" },
-                                        { value: "Menyanyi", label: "Lomba Menyanyi Solo", icon: "fa-solid fa-microphone", color: "bg-sky-100 text-sky-600" },
-                                        { value: "Fashion", label: "Lomba Fashion Show", icon: "fa-solid fa-shirt", color: "bg-fuchsia-100 text-fuchsia-600" },
+                                        { value: "Menyanyi Solo", label: "Lomba Menyanyi Solo", icon: "fa-solid fa-microphone", color: "bg-sky-100 text-sky-600" },
+                                        { value: "Fashion Show", label: "Lomba Fashion Show", icon: "fa-solid fa-shirt", color: "bg-fuchsia-100 text-fuchsia-600" },
                                         { value: "Adzan", label: "Lomba Adzan", icon: "fa-solid fa-volume-high", color: "bg-emerald-100 text-emerald-600" },
-                                        { value: "Penalti", label: "Lomba Tendangan Penalti", icon: "fa-solid fa-futbol", color: "bg-indigo-100 text-indigo-600" }
+                                        { value: "Tendangan Penalti", label: "Lomba Tendangan Penalti", icon: "fa-solid fa-futbol", color: "bg-indigo-100 text-indigo-600" }
                                     ]} 
                                     required 
                                 />
