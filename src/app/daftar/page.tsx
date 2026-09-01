@@ -118,6 +118,25 @@ export default function DaftarPage() {
                 fotoUrl = publicUrl;
             }
 
+            // Generate No Peserta berdasarkan cabang lomba
+            let prefix = 'JEA';
+            if (formData.lomba === 'MHQ') prefix = 'MHQ';
+            else if (formData.lomba === 'Karya Kolase') prefix = 'KLS';
+            else if (formData.lomba === 'Mewarnai') prefix = 'WAR';
+            else if (formData.lomba === 'Menyanyi Solo') prefix = 'NYS';
+            else if (formData.lomba === 'Fashion Show') prefix = 'FSH';
+            else if (formData.lomba === 'Adzan') prefix = 'ADZ';
+            else if (formData.lomba === 'Tendangan Penalti') prefix = 'PNL';
+
+            const { count: countLomba, error: countErr } = await supabase
+                .from('pendaftar')
+                .select('*', { count: 'exact', head: true })
+                .eq('cabang_lomba', formData.lomba);
+            
+            if (countErr) console.error("Gagal menghitung urutan peserta", countErr);
+            const nextNum = (countLomba || 0) + 1;
+            const noPesertaBaru = `${prefix}-2026-${nextNum.toString().padStart(3, '0')}`;
+
             const { data: insertData, error: insertError } = await supabase
                 .from('pendaftar')
                 .insert([
@@ -130,6 +149,7 @@ export default function DaftarPage() {
                         nama_ortu: formData.namaWali,
                         no_wa: formData.waWali,
                         no_wa_pembimbing: formData.waGuru,
+                        no_peserta: noPesertaBaru,
                         foto_url: fotoUrl,
                         minat_sekolah: formData.minatSekolah,
                         status_pembayaran: 'Menunggu'
