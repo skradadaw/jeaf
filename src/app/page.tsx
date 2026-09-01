@@ -113,7 +113,7 @@ export default function Home() {
                             <span className="text-2xl font-bold font-bubbly text-sky-600 tracking-wide">JinGa</span>
                             <span className="text-xs uppercase font-extrabold bg-amber-400 text-slate-900 px-2 py-0.5 rounded-full tracking-wider">Festival 2026</span>
                         </div>
-                        <p className="text-[11px] font-medium text-slate-500">TK/RA • SD Plus 3 Al-Muhajirin</p>
+                        <p className="text-[11px] font-medium text-slate-500">SD Plus 3 Al-Muhajirin</p>
                     </div>
                 </a>
 
@@ -199,9 +199,9 @@ export default function Home() {
             </div>
 
             <div className="px-5 pt-2">
-                <a href="#daftar" onClick={() => setIsMobileMenuOpen(false)} className="w-full flex items-center justify-center gap-2 py-4 rounded-[1.25rem] bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 font-extrabold text-base shadow-lg shadow-amber-500/30 active:scale-95 transition-transform">
+                <Link href="/daftar" onClick={() => setIsMobileMenuOpen(false)} className="w-full flex items-center justify-center gap-2 py-4 rounded-[1.25rem] bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 font-extrabold text-base shadow-lg shadow-amber-500/30 active:scale-95 transition-transform">
                     <i className="fa-solid fa-flag-checkered"></i> Daftar Sekarang!
-                </a>
+                </Link>
             </div>
         </div>
     </nav>
@@ -846,7 +846,7 @@ export default function Home() {
                 
                 <div className="border border-slate-200 rounded-2xl p-5 hover:border-sky-300 transition-colors bg-slate-50/50">
                     <button onClick={() => setActiveFaq(activeFaq === 4 ? null : 4)} className="w-full flex items-center justify-between text-left font-bold text-sm sm:text-base text-slate-800 focus:outline-none">
-                        <span>Bagaimana cara mendaftar dan melakukan pembayaran?</span>
+                        <span>Bagaimana cara mendaftarnya?</span>
                         <i className={`fa-solid fa-chevron-down text-sky-600 transition-transform ${activeFaq === 4 ? 'rotate-180' : ''}`}></i>
                     </button>
                     <AnimatePresence>
@@ -859,7 +859,7 @@ export default function Home() {
                                 className="overflow-hidden"
                             >
                                 <div className="pt-3 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
-                                    Pendaftaran dapat dilakukan secara praktis melalui tombol "Daftar Sekarang" di website ini. Pembayaran dapat ditransfer atau dibayar tunai langsung di Sekretariat SD Plus 3 Al-Muhajirin. Silakan hubungi Admin Konfirmasi Pendaftaran jika ada kendala.
+                                    Pendaftaran dapat dilakukan secara praktis secara online melalui tombol "Daftar Sekarang" di website ini. <strong>Seluruh cabang lomba 100% Gratis (tidak dipungut biaya)</strong>. Silakan hubungi Admin kami jika ada kendala saat mengisi formulir pendaftaran.
                                 </div>
                             </motion.div>
                         )}
