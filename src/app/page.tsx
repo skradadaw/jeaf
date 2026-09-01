@@ -14,8 +14,8 @@ export default function Home() {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
-    // Target: 1 September 2026 00:00 WIB (+07:00)
-    const targetDate = new Date('2026-09-01T00:00:00+07:00').getTime();
+    // Target: 10 Oktober 2026 08:00 WIB (+07:00) - Waktu Acara Dimulai
+    const targetDate = new Date('2026-10-10T08:00:00+07:00').getTime();
     
     const interval = setInterval(() => {
       const now = new Date().getTime();
@@ -256,11 +256,15 @@ export default function Home() {
 
                     
                     <div className="bg-white/10 backdrop-blur-md p-4 sm:p-5 rounded-3xl border border-white/20 shadow-xl max-w-xl mx-auto lg:mx-0">
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-                                <i className="fa-regular fa-clock animate-pulse"></i> Hitung Mundur Hari Petualangan:
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 mb-3">
+                            <span className="text-[11px] sm:text-sm font-bold uppercase tracking-wider text-amber-300 flex items-center justify-center sm:justify-start gap-1.5 text-center">
+                                <i className="fa-regular fa-clock animate-pulse"></i> Menuju Hari Petualangan
                             </span>
-                            <span className="text-[11px] bg-emerald-500/80 px-2.5 py-0.5 rounded-full font-bold">Pendaftaran Dibuka</span>
+                            <div className="flex justify-center sm:justify-end">
+                                <span className="text-[10px] sm:text-[11px] bg-emerald-500/80 px-3 py-1 sm:px-2.5 sm:py-0.5 rounded-full font-bold shadow-sm">
+                                    Pendaftaran Dibuka
+                                </span>
+                            </div>
                         </div>
                         <div className="grid grid-cols-4 gap-2 sm:gap-3 text-center" id="countdownTimer">
                             <div className="bg-slate-900/60 rounded-2xl p-2 sm:p-3 border border-white/10">
