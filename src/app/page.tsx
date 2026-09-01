@@ -391,25 +391,31 @@ export default function Home() {
                             <div>
                                 <div className="flex items-start justify-between mb-4">
                                     <span className="text-3xl">{lomba.icon}</span>
-                                    <span className="text-[11px] px-2.5 py-1">Sisa Kuota: {Math.max(0, lomba.quota - (participantCounts[lomba.dbValue] || 0))}</span>
+                                    <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full border border-transparent">
+                                        Sisa Kuota: {Math.max(0, lomba.quota - (participantCounts[lomba.dbValue] || 0))}
+                                    </span>
                                 </div>
-                                <h3 className="text-xl font-bold mb-2">{lomba.title}</h3>
-                                <p className="text-xs mb-4">{lomba.desc}</p>
-                                <div className="space-y-3 text-xs mb-4 p-3.5">
+                                <h3 className="text-xl font-bold font-bubbly mb-2">{lomba.title}</h3>
+                                <p className="text-xs mb-4 leading-relaxed">
+                                    {lomba.desc}
+                                </p>
+                                <div className="space-y-3 text-xs mb-4 p-3.5 rounded-2xl border border-transparent">
                                     <div className="space-y-1.5">
                                         <div className="flex justify-between items-end">
-                                            <span>Kapasitas Pendaftar</span>
-                                            <strong>{participantCounts[lomba.dbValue] || 0} / {lomba.quota}</strong>
+                                            <span className="font-semibold">Kapasitas Pendaftar</span>
+                                            <strong className="text-sm">{participantCounts[lomba.dbValue] || 0} <span className="text-xs font-normal">/ {lomba.quota}</span></strong>
                                         </div>
-                                        <div className="w-full h-1.5"></div>
+                                        <div className="w-full h-1.5 rounded-full"></div>
                                     </div>
-                                    <div className="flex justify-between items-center pt-2">
-                                        <span>Biaya Pendaftaran</span> 
-                                        <strong>{lomba.price}</strong>
+                                    <div className="flex justify-between items-center pt-2 border-t border-transparent">
+                                        <span className="font-semibold">Biaya Pendaftaran</span> 
+                                        <strong className="font-bold text-sm px-2 py-0.5 rounded-md border border-transparent">{lomba.price}</strong>
                                     </div>
                                 </div>
                             </div>
-                            <div className="w-full py-2.5">Pilih Lomba Ini</div>
+                            <div className="w-full py-2.5 px-4 font-bold text-xs border border-transparent rounded-xl flex items-center justify-center gap-1.5">
+                                <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
+                            </div>
                         </div>
                     ))}
                 </div>
