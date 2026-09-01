@@ -22,14 +22,14 @@ export default function DashboardCard({ title, value, icon, color, trend, progre
   };
 
   return (
-    <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+    <div className="bg-white border border-slate-200 p-4 sm:p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
       {/* Subtle Background Glow */}
       <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity ${colorMap[color].split(' ')[0]}`}></div>
       
-      <div className="flex items-start justify-between relative z-10">
-        <div>
-          <p className="text-sm font-medium text-slate-500 mb-1.5">{title}</p>
-          <h3 className="text-3xl font-bold tracking-tight text-slate-900">{value}</h3>
+      <div className="flex items-start justify-between relative z-10 gap-2">
+        <div className="min-w-0">
+          <p className="text-[11px] sm:text-sm font-medium text-slate-500 mb-1 sm:mb-1.5 truncate">{title}</p>
+          <h3 className="text-xl sm:text-3xl font-bold tracking-tight text-slate-900 truncate">{value}</h3>
           
           {trend && (
             <div className={`flex items-center gap-1 mt-2 text-xs font-bold ${trend.isUp ? 'text-emerald-500' : 'text-rose-500'}`}>
@@ -47,7 +47,7 @@ export default function DashboardCard({ title, value, icon, color, trend, progre
           )}
         </div>
         
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm border border-white/50 ${colorMap[color]}`}>
+        <div className={`shrink-0 w-8 h-8 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center text-sm sm:text-xl shadow-sm border border-white/50 ${colorMap[color]}`}>
           <i className={`fa-solid ${icon}`}></i>
         </div>
       </div>

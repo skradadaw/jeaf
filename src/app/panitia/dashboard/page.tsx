@@ -76,15 +76,15 @@ export default function DashboardPage() {
     }
   };
 
-  // Konfigurasi kuota per cabang lomba (bisa disesuaikan nanti)
+  // Konfigurasi kuota per cabang lomba (disamakan dengan landing page)
   const kuotaPerCabang: Record<string, number> = {
-    'Adzan': 50,
-    'Fashion Show': 50,
-    'MHQ': 50,
-    'Karya Kolase': 50,
-    'Mewarnai': 50,
-    'Tendangan Penalti': 50,
-    'Menyanyi Solo': 50
+    'MHQ': 60,
+    'Karya Kolase': 60,
+    'Mewarnai': 130,
+    'Menyanyi Solo': 60,
+    'Fashion Show': 60,
+    'Adzan': 60,
+    'Tendangan Penalti': 70
   };
 
   // Kalkulasi statistik kuota real-time
@@ -110,7 +110,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <DashboardCard title="Total Pendaftar" value={totalPendaftar} icon="fa-user-group" color="sky" progress={Number(persentaseTarget)} trend={{ value: `${totalPendaftar}/${targetPeserta} Peserta`, isUp: true }} />
         <DashboardCard title="Persentase Kehadiran" value={`${persentaseHadir}%`} icon="fa-qrcode" color="purple" progress={Number(persentaseHadir)} trend={{ value: `${hadirCount}/${totalPendaftar} Hadir`, isUp: true }} />
         <DashboardCard title="Kuota Tersisa" value={kuotaTersisa} icon="fa-ticket" color="amber" />
@@ -128,36 +128,48 @@ export default function DashboardPage() {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex sm:grid sm:grid-cols-2 gap-4 overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar -mx-6 px-6 sm:mx-0 sm:px-0">
             {cabangStats.map(stat => (
-              <div key={stat.cabang} className="bg-slate-50/50 border border-slate-100 hover:border-sky-100 hover:bg-sky-50/30 transition-colors p-4 rounded-xl group relative overflow-hidden">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-sky-700 transition-colors">{stat.cabang}</h4>
-                  <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border ${
-                    stat.sisa === 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 
-                    stat.sisa <= 10 ? 'bg-amber-50 text-amber-600 border-amber-100' : 
-                    'bg-emerald-50 text-emerald-600 border-emerald-100'
-                  }`}>
-                    {stat.sisa === 0 ? 'Penuh' : `Sisa ${stat.sisa}`}
-                  </span>
+              <div key={stat.cabang} className="min-w-[85%] sm:min-w-0 snap-center shrink-0 bg-white border border-slate-100 hover:border-sky-200 hover:shadow-md transition-all p-5 rounded-2xl group relative overflow-hidden flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-bold text-slate-800 text-sm group-hover:text-sky-700 transition-colors leading-tight">{stat.cabang}</h4>
+                    <span className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full border ${
+                      stat.sisa === 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 
+                      stat.sisa <= 10 ? 'bg-amber-50 text-amber-600 border-amber-100' : 
+                      'bg-emerald-50 text-emerald-600 border-emerald-100'
+                    }`}>
+                      {stat.sisa === 0 ? 'KUOTA PENUH' : `SISA ${stat.sisa}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-end mb-4">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-3xl font-extrabold text-slate-700">{stat.terisi}</span>
+                      <span className="text-xs font-bold text-slate-400">/ {stat.kuota}</span>
+                    </div>
+                  </div>
                 </div>
                 
-                <div className="w-full bg-slate-200/60 rounded-full h-2.5 mb-2 overflow-hidden relative">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(100, Number(stat.persentase))}%` }}
-                    transition={{ duration: 1, type: "spring" }}
-                    className={`absolute left-0 top-0 h-full rounded-full ${
-                      stat.sisa === 0 ? 'bg-rose-500' : 
-                      stat.sisa <= 10 ? 'bg-amber-500' : 
-                      'bg-sky-500'
-                    }`} 
-                  />
-                </div>
-                
-                <div className="flex justify-between text-xs font-medium">
-                  <span className="text-slate-500">Terisi: <strong className="text-slate-700">{stat.terisi}</strong></span>
-                  <span className="text-slate-400">Target: {stat.kuota}</span>
+                <div>
+                  <div className="w-full bg-slate-100 rounded-full h-3 mb-2.5 overflow-hidden relative shadow-inner">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, Number(stat.persentase))}%` }}
+                      transition={{ duration: 1, type: "spring" }}
+                      className={`absolute left-0 top-0 h-full rounded-full ${
+                        stat.sisa === 0 ? 'bg-rose-500' : 
+                        stat.sisa <= 10 ? 'bg-amber-500' : 
+                        'bg-sky-500'
+                      }`} 
+                    />
+                  </div>
+                  
+                  <div className="flex justify-between text-[11px] font-bold">
+                    <span className="text-slate-400">Terisi {stat.persentase}%</span>
+                    <span className={stat.sisa === 0 ? 'text-rose-500' : stat.sisa <= 10 ? 'text-amber-500' : 'text-emerald-500'}>
+                      {stat.sisa === 0 ? 'Kapasitas Maksimal' : 'Masih Tersedia'}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
