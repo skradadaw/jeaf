@@ -391,13 +391,22 @@ export default function Home() {
                             <div>
                                 <div className="flex items-start justify-between mb-4">
                                     <span className="text-3xl">{lomba.icon}</span>
-                                    <span className="text-[11px] px-2.5 py-1">{lomba.target}</span>
+                                    <span className="text-[11px] px-2.5 py-1">Sisa Kuota: {Math.max(0, lomba.quota - (participantCounts[lomba.dbValue] || 0))}</span>
                                 </div>
                                 <h3 className="text-xl font-bold mb-2">{lomba.title}</h3>
                                 <p className="text-xs mb-4">{lomba.desc}</p>
-                                <div className="space-y-1.5 text-xs p-3 mb-4">
-                                    <div className="flex justify-between"><span>Sisa Peserta:</span> <strong>{Math.max(0, lomba.quota - (participantCounts[lomba.dbValue] || 0))} dari {lomba.quota}</strong></div>
-                                    <div className="flex justify-between"><span>Biaya:</span> <strong>{lomba.price}</strong></div>
+                                <div className="space-y-3 text-xs mb-4 p-3.5">
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-end">
+                                            <span>Kapasitas Pendaftar</span>
+                                            <strong>{participantCounts[lomba.dbValue] || 0} / {lomba.quota}</strong>
+                                        </div>
+                                        <div className="w-full h-1.5"></div>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-2">
+                                        <span>Biaya Pendaftaran</span> 
+                                        <strong>{lomba.price}</strong>
+                                    </div>
                                 </div>
                             </div>
                             <div className="w-full py-2.5">Pilih Lomba Ini</div>
@@ -422,16 +431,27 @@ export default function Home() {
                                 <div className="flex items-start justify-between mb-4">
                                     <span className="text-3xl">{lomba.icon}</span>
                                     <span className={`text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full ${lomba.classes.tagBg} ${lomba.classes.tagText}`}>
-                                        {lomba.target}
+                                        Sisa Kuota: {Math.max(0, lomba.quota - (participantCounts[lomba.dbValue] || 0))}
                                     </span>
                                 </div>
                                 <h3 className="text-xl font-bold font-bubbly text-slate-900 mb-2">{lomba.title}</h3>
                                 <p className="text-xs text-slate-600 mb-4 leading-relaxed">
                                     {lomba.desc}
                                 </p>
-                                <div className="space-y-1.5 text-xs text-slate-500 mb-4 bg-slate-50 p-3 rounded-2xl">
-                                    <div className="flex justify-between"><span>Sisa Peserta:</span> <strong className="text-slate-800">{Math.max(0, lomba.quota - (participantCounts[lomba.dbValue] || 0))} dari {lomba.quota}</strong></div>
-                                    <div className="flex justify-between"><span>Biaya:</span> <strong className={`${lomba.classes.priceText} font-bold`}>{lomba.price}</strong></div>
+                                <div className="space-y-3 text-xs mb-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-end">
+                                            <span className="font-semibold text-slate-500">Kapasitas Pendaftar</span>
+                                            <strong className="text-slate-700 text-sm">{participantCounts[lomba.dbValue] || 0} <span className="text-xs text-slate-400 font-normal">/ {lomba.quota}</span></strong>
+                                        </div>
+                                        <div className="w-full bg-slate-200/80 rounded-full h-1.5 overflow-hidden">
+                                            <div className={`h-full rounded-full ${lomba.classes.tagBg.replace('100', '400')} transition-all duration-1000 ease-out`} style={{ width: `${Math.min(100, ((participantCounts[lomba.dbValue] || 0) / lomba.quota) * 100)}%` }}></div>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-2 border-t border-slate-200/80">
+                                        <span className="font-semibold text-slate-500">Biaya Pendaftaran</span> 
+                                        <strong className={`${lomba.classes.priceText} font-bold text-sm bg-white px-2 py-0.5 rounded-md border border-slate-100 shadow-sm`}>{lomba.price}</strong>
+                                    </div>
                                 </div>
                             </div>
                             <Link href="/daftar" className={`w-full py-2.5 rounded-xl ${lomba.classes.btnBg} ${lomba.classes.btnHover} hover:text-white ${lomba.classes.btnText} font-bold text-xs transition-colors flex items-center justify-center gap-1.5`}>
