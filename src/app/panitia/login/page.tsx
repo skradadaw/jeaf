@@ -18,7 +18,7 @@ export default function PanitiaLogin() {
         // Simulasi proses login PIN
         setTimeout(() => {
             setIsSubmitting(false);
-            if (pin === '123456') {
+            if (pin === '202609') {
                 router.push('/panitia/dashboard');
             } else {
                 setError('PIN yang Anda masukkan salah.');
