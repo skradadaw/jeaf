@@ -81,6 +81,25 @@ export default function DaftarPage() {
         setIsSubmitting(true);
         
         try {
+            // Cek Duplikat Peserta (1 Peserta 1 Lomba)
+            // Memeriksa kombinasi Nama, Tanggal Lahir, dan Asal Sekolah
+            const { data: existingData, error: checkError } = await supabase
+                .from('pendaftar')
+                .select('id, cabang_lomba')
+                .ilike('nama_anak', formData.namaAnak)
+                .eq('tgl_lahir', formData.tanggalLahir.toISOString())
+                .ilike('asal_sekolah', formData.asalSekolah);
+
+            if (checkError) {
+                throw new Error('Gagal memverifikasi data peserta: ' + checkError.message);
+            }
+            
+            if (existingData && existingData.length > 0) {
+                alert(`Pendaftaran Ditolak: Peserta bernama "${formData.namaAnak}" sudah terdaftar di cabang lomba "${existingData[0].cabang_lomba}". (Satu anak hanya boleh mengikuti maksimal 1 cabang lomba).`);
+                setIsSubmitting(false);
+                return;
+            }
+
             let fotoUrl = null;
             const file = fileInputRef.current?.files?.[0];
             
@@ -99,6 +118,25 @@ export default function DaftarPage() {
                 fotoUrl = publicUrl;
             }
 
+            // Generate No Peserta berdasarkan cabang lomba
+            let prefix = 'JEA';
+            if (formData.lomba === 'MHQ') prefix = 'MHQ';
+            else if (formData.lomba === 'Karya Kolase') prefix = 'KLS';
+            else if (formData.lomba === 'Mewarnai') prefix = 'WAR';
+            else if (formData.lomba === 'Menyanyi Solo') prefix = 'NYS';
+            else if (formData.lomba === 'Fashion Show') prefix = 'FSH';
+            else if (formData.lomba === 'Adzan') prefix = 'ADZ';
+            else if (formData.lomba === 'Tendangan Penalti') prefix = 'PNL';
+
+            const { count: countLomba, error: countErr } = await supabase
+                .from('pendaftar')
+                .select('*', { count: 'exact', head: true })
+                .eq('cabang_lomba', formData.lomba);
+            
+            if (countErr) console.error("Gagal menghitung urutan peserta", countErr);
+            const nextNum = (countLomba || 0) + 1;
+            const noPesertaBaru = `${prefix}-2026-${nextNum.toString().padStart(3, '0')}`;
+
             const { data: insertData, error: insertError } = await supabase
                 .from('pendaftar')
                 .insert([
@@ -110,6 +148,8 @@ export default function DaftarPage() {
                         cabang_lomba: formData.lomba,
                         nama_ortu: formData.namaWali,
                         no_wa: formData.waWali,
+                        no_wa_pembimbing: formData.waGuru,
+                        no_peserta: noPesertaBaru,
                         foto_url: fotoUrl,
                         minat_sekolah: formData.minatSekolah,
                         status_pembayaran: 'Menunggu'
@@ -342,9 +382,8 @@ export default function DaftarPage() {
                                         value={formData.minatSekolah}
                                         onChange={(val) => setFormData({...formData, minatSekolah: val})}
                                         options={[
-                                            { value: "Ya, Berminat", label: "Ya, Berminat", icon: "fa-solid fa-check", color: "bg-emerald-100 text-emerald-600" },
-                                            { value: "Mungkin", label: "Mungkin", icon: "fa-solid fa-question", color: "bg-amber-100 text-amber-600" },
-                                            { value: "Tidak", label: "Tidak", icon: "fa-solid fa-xmark", color: "bg-rose-100 text-rose-600" },
+                                            { value: "Ya, Berminat", label: "Berminat", icon: "fa-solid fa-check", color: "bg-emerald-100 text-emerald-600" },
+                                            { value: "Masih dalam pertimbangan", label: "Masih dalam pertimbangan", icon: "fa-solid fa-scale-balanced", color: "bg-amber-100 text-amber-600" }
                                         ]} 
                                         required 
                                     />
@@ -409,12 +448,12 @@ export default function DaftarPage() {
                                     onChange={(val) => setFormData({...formData, lomba: val})}
                                     options={[
                                         { value: "MHQ", label: "Lomba MHQ (Hafalan Al-Qur'an)", icon: "fa-solid fa-book-quran", color: "bg-emerald-100 text-emerald-600" },
-                                        { value: "Kolase", label: "Lomba Karya Kolase", icon: "fa-solid fa-scissors", color: "bg-amber-100 text-amber-600" },
+                                        { value: "Karya Kolase", label: "Lomba Karya Kolase", icon: "fa-solid fa-scissors", color: "bg-amber-100 text-amber-600" },
                                         { value: "Mewarnai", label: "Lomba Mewarnai", icon: "fa-solid fa-palette", color: "bg-rose-100 text-rose-600" },
-                                        { value: "Menyanyi", label: "Lomba Menyanyi Solo", icon: "fa-solid fa-microphone", color: "bg-sky-100 text-sky-600" },
-                                        { value: "Fashion", label: "Lomba Fashion Show", icon: "fa-solid fa-shirt", color: "bg-fuchsia-100 text-fuchsia-600" },
+                                        { value: "Menyanyi Solo", label: "Lomba Menyanyi Solo", icon: "fa-solid fa-microphone", color: "bg-sky-100 text-sky-600" },
+                                        { value: "Fashion Show", label: "Lomba Fashion Show", icon: "fa-solid fa-shirt", color: "bg-fuchsia-100 text-fuchsia-600" },
                                         { value: "Adzan", label: "Lomba Adzan", icon: "fa-solid fa-volume-high", color: "bg-emerald-100 text-emerald-600" },
-                                        { value: "Penalti", label: "Lomba Tendangan Penalti", icon: "fa-solid fa-futbol", color: "bg-indigo-100 text-indigo-600" }
+                                        { value: "Tendangan Penalti", label: "Lomba Tendangan Penalti", icon: "fa-solid fa-futbol", color: "bg-indigo-100 text-indigo-600" }
                                     ]} 
                                     required 
                                 />

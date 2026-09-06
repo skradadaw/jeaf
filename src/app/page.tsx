@@ -14,8 +14,8 @@ export default function Home() {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
-    // Target: 1 September 2026 00:00 WIB (+07:00)
-    const targetDate = new Date('2026-09-01T00:00:00+07:00').getTime();
+    // Target: 10 Oktober 2026 08:00 WIB (+07:00) - Waktu Acara Dimulai
+    const targetDate = new Date('2026-10-10T08:00:00+07:00').getTime();
     
     const interval = setInterval(() => {
       const now = new Date().getTime();
@@ -81,12 +81,12 @@ export default function Home() {
 
   const lombaList = [
     { id: 1, title: 'Lomba MHQ', category: 'islami', icon: '📖', target: 'TK A & B', desc: 'Uji hafalan surah-surah pendek pilihan dengan tartil, makhraj yang benar, dan adab tilawah.', quota: 60, price: 'Gratis', dbValue: 'MHQ', classes: { border: 'border-emerald-200', tagBg: 'bg-emerald-100', tagText: 'text-emerald-800', priceText: 'text-emerald-600', btnBg: 'bg-emerald-50', btnHover: 'hover:bg-emerald-600', btnText: 'text-emerald-700' } },
-    { id: 2, title: 'Lomba Karya Kolase', category: 'seni', icon: '✂️', target: 'TK A & B', desc: 'Berkreasi membuat seni kolase yang indah untuk melatih kreativitas dan motorik halus.', quota: 60, price: 'Gratis', dbValue: 'Kolase', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
+    { id: 2, title: 'Lomba Karya Kolase', category: 'seni', icon: '✂️', target: 'TK A & B', desc: 'Berkreasi membuat seni kolase yang indah untuk melatih kreativitas dan motorik halus.', quota: 60, price: 'Gratis', dbValue: 'Karya Kolase', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
     { id: 3, title: 'Lomba Mewarnai', category: 'seni', icon: '🎨', target: 'TK A & B', desc: 'Mengekspresikan imajinasi dan gradasi warna ceria pada sketsa petualang cilik JinGa.', quota: 130, price: 'Gratis', dbValue: 'Mewarnai', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
-    { id: 4, title: 'Lomba Menyanyi Solo', category: 'seni', icon: '🎵', target: 'TK A & B', desc: 'Menumbuhkan keberanian dan bakat tarik suara anak dengan lagu-lagu anak ceria.', quota: 60, price: 'Gratis', dbValue: 'Menyanyi', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
-    { id: 5, title: 'Lomba Fashion Show', category: 'seni', icon: '👗', target: 'Putra & Putri', desc: 'Peragaan busana muslim/muslimah cilik bertema "Little Explorer" yang syar\'i, anggun, dan percaya diri.', quota: 60, price: 'Gratis', dbValue: 'Fashion', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
+    { id: 4, title: 'Lomba Menyanyi Solo', category: 'seni', icon: '🎵', target: 'TK A & B', desc: 'Menumbuhkan keberanian dan bakat tarik suara anak dengan lagu-lagu anak ceria.', quota: 60, price: 'Gratis', dbValue: 'Menyanyi Solo', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
+    { id: 5, title: 'Lomba Fashion Show', category: 'seni', icon: '👗', target: 'Putra & Putri', desc: 'Peragaan busana muslim/muslimah cilik bertema "Little Explorer" yang syar\'i, anggun, dan percaya diri.', quota: 60, price: 'Gratis', dbValue: 'Fashion Show', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
     { id: 6, title: 'Lomba Adzan', category: 'islami', icon: '🗣️', target: 'Khusus Ikhwan', desc: 'Melantunkan panggilan adzan Subuh/Dzuhur dengan kemerduan nada, kejelasan makhraj, dan adab muadzin.', quota: 60, price: 'Gratis', dbValue: 'Adzan', classes: { border: 'border-emerald-200', tagBg: 'bg-emerald-100', tagText: 'text-emerald-800', priceText: 'text-emerald-600', btnBg: 'bg-emerald-50', btnHover: 'hover:bg-emerald-600', btnText: 'text-emerald-700' } },
-    { id: 7, title: 'Lomba Tendangan Penalti', category: 'ketangkasan', icon: '⚽', target: 'Ketangkasan', desc: 'Tantangan ketepatan menendang bola ke gawang untuk melatih fokus dan motorik anak.', quota: 70, price: 'Gratis', dbValue: 'Penalti', classes: { border: 'border-sky-200', tagBg: 'bg-sky-100', tagText: 'text-sky-800', priceText: 'text-sky-600', btnBg: 'bg-sky-50', btnHover: 'hover:bg-sky-600', btnText: 'text-sky-700' } },
+    { id: 7, title: 'Lomba Tendangan Penalti', category: 'ketangkasan', icon: '⚽', target: 'Ketangkasan', desc: 'Tantangan ketepatan menendang bola ke gawang untuk melatih fokus dan motorik anak.', quota: 70, price: 'Gratis', dbValue: 'Tendangan Penalti', classes: { border: 'border-sky-200', tagBg: 'bg-sky-100', tagText: 'text-sky-800', priceText: 'text-sky-600', btnBg: 'bg-sky-50', btnHover: 'hover:bg-sky-600', btnText: 'text-sky-700' } },
   ];
 
   const filteredLomba = lombaList.filter(lomba => activeFilter === 'Semua' || lomba.category === activeFilter);
@@ -113,7 +113,7 @@ export default function Home() {
                             <span className="text-2xl font-bold font-bubbly text-sky-600 tracking-wide">JinGa</span>
                             <span className="text-xs uppercase font-extrabold bg-amber-400 text-slate-900 px-2 py-0.5 rounded-full tracking-wider">Festival 2026</span>
                         </div>
-                        <p className="text-[11px] font-medium text-slate-500">TK/RA • SD Plus 3 Al-Muhajirin</p>
+                        <p className="text-[11px] font-medium text-slate-500">SD Plus 3 Al-Muhajirin</p>
                     </div>
                 </a>
 
@@ -199,9 +199,9 @@ export default function Home() {
             </div>
 
             <div className="px-5 pt-2">
-                <a href="#daftar" onClick={() => setIsMobileMenuOpen(false)} className="w-full flex items-center justify-center gap-2 py-4 rounded-[1.25rem] bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 font-extrabold text-base shadow-lg shadow-amber-500/30 active:scale-95 transition-transform">
+                <Link href="/daftar" onClick={() => setIsMobileMenuOpen(false)} className="w-full flex items-center justify-center gap-2 py-4 rounded-[1.25rem] bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 font-extrabold text-base shadow-lg shadow-amber-500/30 active:scale-95 transition-transform">
                     <i className="fa-solid fa-flag-checkered"></i> Daftar Sekarang!
-                </a>
+                </Link>
             </div>
         </div>
     </nav>
@@ -256,11 +256,15 @@ export default function Home() {
 
                     
                     <div className="bg-white/10 backdrop-blur-md p-4 sm:p-5 rounded-3xl border border-white/20 shadow-xl max-w-xl mx-auto lg:mx-0">
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-                                <i className="fa-regular fa-clock animate-pulse"></i> Hitung Mundur Hari Petualangan:
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 mb-3">
+                            <span className="text-[11px] sm:text-sm font-bold uppercase tracking-wider text-amber-300 flex items-center justify-center sm:justify-start gap-1.5 text-center">
+                                <i className="fa-regular fa-clock animate-pulse"></i> Menuju Hari Petualangan
                             </span>
-                            <span className="text-[11px] bg-emerald-500/80 px-2.5 py-0.5 rounded-full font-bold">Pendaftaran Dibuka</span>
+                            <div className="flex justify-center sm:justify-end">
+                                <span className="text-[10px] sm:text-[11px] bg-emerald-500/80 px-3 py-1 sm:px-2.5 sm:py-0.5 rounded-full font-bold shadow-sm">
+                                    Pendaftaran Dibuka
+                                </span>
+                            </div>
                         </div>
                         <div className="grid grid-cols-4 gap-2 sm:gap-3 text-center" id="countdownTimer">
                             <div className="bg-slate-900/60 rounded-2xl p-2 sm:p-3 border border-white/10">
@@ -391,16 +395,31 @@ export default function Home() {
                             <div>
                                 <div className="flex items-start justify-between mb-4">
                                     <span className="text-3xl">{lomba.icon}</span>
-                                    <span className="text-[11px] px-2.5 py-1">{lomba.target}</span>
+                                    <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full border border-transparent">
+                                        Sisa Kuota: {Math.max(0, lomba.quota - (participantCounts[lomba.dbValue] || 0))}
+                                    </span>
                                 </div>
-                                <h3 className="text-xl font-bold mb-2">{lomba.title}</h3>
-                                <p className="text-xs mb-4">{lomba.desc}</p>
-                                <div className="space-y-1.5 text-xs p-3 mb-4">
-                                    <div className="flex justify-between"><span>Sisa Peserta:</span> <strong>{Math.max(0, lomba.quota - (participantCounts[lomba.dbValue] || 0))} dari {lomba.quota}</strong></div>
-                                    <div className="flex justify-between"><span>Biaya:</span> <strong>{lomba.price}</strong></div>
+                                <h3 className="text-xl font-bold font-bubbly mb-2">{lomba.title}</h3>
+                                <p className="text-xs mb-4 leading-relaxed">
+                                    {lomba.desc}
+                                </p>
+                                <div className="space-y-3 text-xs mb-4 p-3.5 rounded-2xl border border-transparent">
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-end">
+                                            <span className="font-semibold">Kapasitas Pendaftar</span>
+                                            <strong className="text-sm">{participantCounts[lomba.dbValue] || 0} <span className="text-xs font-normal">/ {lomba.quota}</span></strong>
+                                        </div>
+                                        <div className="w-full h-1.5 rounded-full"></div>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-2 border-t border-transparent">
+                                        <span className="font-semibold">Biaya Pendaftaran</span> 
+                                        <strong className="font-bold text-sm px-2 py-0.5 rounded-md border border-transparent">{lomba.price}</strong>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="w-full py-2.5">Pilih Lomba Ini</div>
+                            <div className="w-full py-2.5 px-4 font-bold text-xs border border-transparent rounded-xl flex items-center justify-center gap-1.5">
+                                <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -422,16 +441,27 @@ export default function Home() {
                                 <div className="flex items-start justify-between mb-4">
                                     <span className="text-3xl">{lomba.icon}</span>
                                     <span className={`text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full ${lomba.classes.tagBg} ${lomba.classes.tagText}`}>
-                                        {lomba.target}
+                                        Sisa Kuota: {Math.max(0, lomba.quota - (participantCounts[lomba.dbValue] || 0))}
                                     </span>
                                 </div>
                                 <h3 className="text-xl font-bold font-bubbly text-slate-900 mb-2">{lomba.title}</h3>
                                 <p className="text-xs text-slate-600 mb-4 leading-relaxed">
                                     {lomba.desc}
                                 </p>
-                                <div className="space-y-1.5 text-xs text-slate-500 mb-4 bg-slate-50 p-3 rounded-2xl">
-                                    <div className="flex justify-between"><span>Sisa Peserta:</span> <strong className="text-slate-800">{Math.max(0, lomba.quota - (participantCounts[lomba.dbValue] || 0))} dari {lomba.quota}</strong></div>
-                                    <div className="flex justify-between"><span>Biaya:</span> <strong className={`${lomba.classes.priceText} font-bold`}>{lomba.price}</strong></div>
+                                <div className="space-y-3 text-xs mb-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-end">
+                                            <span className="font-semibold text-slate-500">Kapasitas Pendaftar</span>
+                                            <strong className="text-slate-700 text-sm">{participantCounts[lomba.dbValue] || 0} <span className="text-xs text-slate-400 font-normal">/ {lomba.quota}</span></strong>
+                                        </div>
+                                        <div className="w-full bg-slate-200/80 rounded-full h-1.5 overflow-hidden">
+                                            <div className={`h-full rounded-full ${lomba.classes.tagBg.replace('100', '400')} transition-all duration-1000 ease-out`} style={{ width: `${Math.min(100, ((participantCounts[lomba.dbValue] || 0) / lomba.quota) * 100)}%` }}></div>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-2 border-t border-slate-200/80">
+                                        <span className="font-semibold text-slate-500">Biaya Pendaftaran</span> 
+                                        <strong className={`${lomba.classes.priceText} font-bold text-sm bg-white px-2 py-0.5 rounded-md border border-slate-100 shadow-sm`}>{lomba.price}</strong>
+                                    </div>
                                 </div>
                             </div>
                             <Link href="/daftar" className={`w-full py-2.5 rounded-xl ${lomba.classes.btnBg} ${lomba.classes.btnHover} hover:text-white ${lomba.classes.btnText} font-bold text-xs transition-colors flex items-center justify-center gap-1.5`}>
@@ -454,7 +484,7 @@ export default function Home() {
                         <p className="text-xs sm:text-sm text-sky-100">Unduh PDF berisi kriteria penilaian juri, tata tertib, dan surat rekomendasi sekolah.</p>
                     </div>
                 </div>
-                <a href="#juknisModal"  className="px-6 py-3 rounded-xl bg-amber-400 text-slate-900 font-extrabold text-xs sm:text-sm shadow hover:bg-amber-300 transition-colors whitespace-nowrap">
+                <a href="/juknis-jeaf.pdf" download="Juknis_JEAF_2026.pdf" className="px-6 py-3 rounded-xl bg-amber-400 text-slate-900 font-extrabold text-xs sm:text-sm shadow hover:bg-amber-300 transition-colors whitespace-nowrap">
                     <i className="fa-solid fa-file-pdf mr-1"></i> Download Juknis (PDF)
                 </a>
             </div>
@@ -816,7 +846,7 @@ export default function Home() {
                 
                 <div className="border border-slate-200 rounded-2xl p-5 hover:border-sky-300 transition-colors bg-slate-50/50">
                     <button onClick={() => setActiveFaq(activeFaq === 4 ? null : 4)} className="w-full flex items-center justify-between text-left font-bold text-sm sm:text-base text-slate-800 focus:outline-none">
-                        <span>Bagaimana cara mendaftar dan melakukan pembayaran?</span>
+                        <span>Bagaimana cara mendaftarnya?</span>
                         <i className={`fa-solid fa-chevron-down text-sky-600 transition-transform ${activeFaq === 4 ? 'rotate-180' : ''}`}></i>
                     </button>
                     <AnimatePresence>
@@ -829,7 +859,7 @@ export default function Home() {
                                 className="overflow-hidden"
                             >
                                 <div className="pt-3 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
-                                    Pendaftaran dapat dilakukan secara praktis melalui tombol "Daftar Sekarang" di website ini. Pembayaran dapat ditransfer atau dibayar tunai langsung di Sekretariat SD Plus 3 Al-Muhajirin. Silakan hubungi Admin Konfirmasi Pendaftaran jika ada kendala.
+                                    Pendaftaran dapat dilakukan secara praktis secara online melalui tombol "Daftar Sekarang" di website ini. <strong>Seluruh cabang lomba 100% Gratis (tidak dipungut biaya)</strong>. Silakan hubungi Admin kami jika ada kendala saat mengisi formulir pendaftaran.
                                 </div>
                             </motion.div>
                         )}
