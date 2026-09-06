@@ -8,6 +8,7 @@ import PesertaModal from '@/components/PesertaModal';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { toast } from 'react-hot-toast';
 import CustomSelect from '@/components/CustomSelect';
+import { exportPesertaToExcel } from '@/lib/exportPeserta';
 
 export default function DataPesertaPage() {
   const [registrations, setRegistrations] = useState<any[]>([]);
@@ -132,6 +133,33 @@ export default function DataPesertaPage() {
     setCurrentPage(1);
   }, [filterCabang, searchQuery]);
 
+  // Export to Excel state & logic (Semua Peserta)
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportAll = () => {
+    if (!registrations || registrations.length === 0) {
+      toast.error('Tidak ada data peserta yang dapat diekspor.');
+      return;
+    }
+
+    try {
+      setIsExporting(true);
+      const dateStr = new Date().toISOString().split('T')[0];
+      const filename = `Data_Peserta_JinGa_2026_${dateStr}.xlsx`;
+
+      exportPesertaToExcel(registrations, filename);
+      toast.success(`Berhasil mengunduh ${registrations.length} data peserta ke Excel!`, {
+        icon: '📊',
+        duration: 4000
+      });
+    } catch (err: any) {
+      console.error('Export error:', err);
+      toast.error(`Gagal mengekspor data: ${err.message || 'Terjadi kesalahan'}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Pagination logic
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -165,8 +193,22 @@ export default function DataPesertaPage() {
             </div>
           </div>
           
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-500 bg-slate-50 border border-slate-100 px-4 py-2.5 rounded-xl w-full md:w-auto justify-center shadow-sm">
-            Total Data: <span className="text-sky-600 font-bold bg-sky-100 px-2 py-0.5 rounded-md">{filteredData.length}</span>
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-500 bg-slate-50 border border-slate-100 px-4 py-2.5 rounded-xl shadow-sm">
+              Total Data: <span className="text-sky-600 font-bold bg-sky-100 px-2 py-0.5 rounded-md">{filteredData.length}</span>
+            </div>
+
+            {/* Export Excel Button (Semua Peserta) */}
+            <button
+              type="button"
+              onClick={handleExportAll}
+              disabled={isExporting || registrations.length === 0}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm shadow-emerald-600/20 hover:shadow-md hover:shadow-emerald-600/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+              title="Export seluruh data peserta ke file Excel (.xlsx)"
+            >
+              <i className={`fa-solid ${isExporting ? 'fa-circle-notch fa-spin' : 'fa-file-excel'} text-base text-emerald-100`}></i>
+              <span>Export Excel</span>
+            </button>
           </div>
         </div>
 
