@@ -27,17 +27,56 @@ export default function DataPesertaPage() {
     'Semua', 'Adzan', 'Fashion Show', 'MHQ', 'Karya Kolase', 'Mewarnai', 'Tendangan Penalti', 'Menyanyi Solo'
   ];
 
-  const getCabangColor = (cabang: string) => {
-    switch (cabang) {
-      case 'Adzan': return 'bg-blue-50 text-blue-600 border-blue-200';
-      case 'Fashion Show': return 'bg-pink-50 text-pink-600 border-pink-200';
-      case 'MHQ': return 'bg-purple-50 text-purple-600 border-purple-200';
-      case 'Karya Kolase': return 'bg-orange-50 text-orange-600 border-orange-200';
-      case 'Mewarnai': return 'bg-amber-50 text-amber-600 border-amber-200';
-      case 'Tendangan Penalti': return 'bg-emerald-50 text-emerald-600 border-emerald-200';
-      case 'Menyanyi Solo': return 'bg-rose-50 text-rose-600 border-rose-200';
-      default: return 'bg-slate-50 text-slate-600 border-slate-200';
-    }
+  const CABANG_BADGE_CONFIG: Record<string, { bg: string; text: string; border: string; icon: string; iconColor: string }> = {
+    'Adzan': {
+      bg: 'bg-indigo-50/90 hover:bg-indigo-100/80',
+      text: 'text-indigo-700',
+      border: 'border-indigo-200/80',
+      icon: 'fa-solid fa-volume-high',
+      iconColor: 'text-indigo-600',
+    },
+    'Fashion Show': {
+      bg: 'bg-rose-50/90 hover:bg-rose-100/80',
+      text: 'text-rose-700',
+      border: 'border-rose-200/80',
+      icon: 'fa-solid fa-vest-patches',
+      iconColor: 'text-rose-600',
+    },
+    'MHQ': {
+      bg: 'bg-emerald-50/90 hover:bg-emerald-100/80',
+      text: 'text-emerald-800',
+      border: 'border-emerald-200/80',
+      icon: 'fa-solid fa-book-quran',
+      iconColor: 'text-emerald-600',
+    },
+    'Karya Kolase': {
+      bg: 'bg-orange-50/90 hover:bg-orange-100/80',
+      text: 'text-orange-800',
+      border: 'border-orange-200/80',
+      icon: 'fa-solid fa-scissors',
+      iconColor: 'text-orange-600',
+    },
+    'Mewarnai': {
+      bg: 'bg-amber-50/90 hover:bg-amber-100/80',
+      text: 'text-amber-800',
+      border: 'border-amber-200/80',
+      icon: 'fa-solid fa-palette',
+      iconColor: 'text-amber-600',
+    },
+    'Tendangan Penalti': {
+      bg: 'bg-sky-50/90 hover:bg-sky-100/80',
+      text: 'text-sky-800',
+      border: 'border-sky-200/80',
+      icon: 'fa-solid fa-futbol',
+      iconColor: 'text-sky-600',
+    },
+    'Menyanyi Solo': {
+      bg: 'bg-purple-50/90 hover:bg-purple-100/80',
+      text: 'text-purple-700',
+      border: 'border-purple-200/80',
+      icon: 'fa-solid fa-microphone',
+      iconColor: 'text-purple-600',
+    },
   };
 
   const getWaLink = (num?: string | null) => {
@@ -130,8 +169,12 @@ export default function DataPesertaPage() {
 
   // Filter data based on search query and cabang lomba
   const filteredData = registrations.filter(reg => {
-    const matchesSearch = reg.nama_anak.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          reg.asal_sekolah.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch = !q || 
+                          (reg.nama_anak && reg.nama_anak.toLowerCase().includes(q)) || 
+                          (reg.asal_sekolah && reg.asal_sekolah.toLowerCase().includes(q)) ||
+                          (reg.no_peserta && reg.no_peserta.toLowerCase().includes(q)) ||
+                          (reg.nama_ortu && reg.nama_ortu.toLowerCase().includes(q));
     const matchesCabang = filterCabang === 'Semua' || reg.cabang_lomba === filterCabang;
     return matchesSearch && matchesCabang;
   });
@@ -196,7 +239,12 @@ export default function DataPesertaPage() {
                 size="sm"
                 value={filterCabang} 
                 onChange={(val) => setFilterCabang(val)}
-                options={cabangLombaList.map(c => ({ value: c, label: c, icon: c === 'Semua' ? 'fa-solid fa-filter' : 'fa-solid fa-trophy' }))}
+                options={cabangLombaList.map(c => ({ 
+                  value: c, 
+                  label: c, 
+                  icon: c === 'Semua' ? 'fa-solid fa-filter' : (CABANG_BADGE_CONFIG[c]?.icon || 'fa-solid fa-trophy'),
+                  color: c === 'Semua' ? 'bg-slate-100 text-slate-600' : (CABANG_BADGE_CONFIG[c]?.iconColor ? `bg-slate-100 ${CABANG_BADGE_CONFIG[c].iconColor}` : 'bg-slate-100 text-slate-600')
+                }))}
               />
             </div>
           </div>
@@ -264,7 +312,17 @@ export default function DataPesertaPage() {
                         />
                         <div>
                           <p className="font-bold text-slate-800 text-sm mb-0.5 group-hover:text-sky-600 transition-colors">{reg.nama_anak}</p>
-                          <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-2 py-0.5 rounded-md" title={reg.id}>{reg.no_peserta || reg.id.split('-')[0].toUpperCase()}</span>
+                          <a 
+                            href={`/tiket/${reg.id}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[10px] text-slate-500 hover:text-sky-600 font-mono bg-slate-100 hover:bg-sky-50 hover:border-sky-200 border border-transparent px-2 py-0.5 rounded-md inline-flex items-center gap-1 transition-colors" 
+                            title="Buka & Cetak Tiket Peserta (Buka di tab baru)"
+                          >
+                            <span>{reg.no_peserta || reg.id.split('-')[0].toUpperCase()}</span>
+                            <i className="fa-solid fa-arrow-up-right-from-square text-[8px] opacity-70"></i>
+                          </a>
                         </div>
                       </div>
                     </td>
@@ -277,21 +335,33 @@ export default function DataPesertaPage() {
                           <p className="text-xs font-semibold text-slate-700 truncate max-w-[150px]">{reg.asal_sekolah}</p>
                           {reg.minat_sekolah && (
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 mt-1 border ${
-                              reg.minat_sekolah === 'Berminat' 
+                              reg.minat_sekolah.toLowerCase().includes('berminat') 
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                                : 'bg-slate-100 text-slate-600 border-slate-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
                             }`}>
-                              <i className={`fa-solid ${reg.minat_sekolah === 'Berminat' ? 'fa-check' : 'fa-clock'} text-[9px]`}></i>
-                              SPMB: {reg.minat_sekolah}
+                              <i className={`fa-solid ${reg.minat_sekolah.toLowerCase().includes('berminat') ? 'fa-circle-check' : 'fa-clock-rotate-left'} text-[9px]`}></i>
+                              SPMB: {reg.minat_sekolah.toLowerCase().includes('berminat') ? 'Berminat' : 'Dipertimbangkan'}
                             </span>
                           )}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold border ${getCabangColor(reg.cabang_lomba)}`}>
-                        {reg.cabang_lomba}
-                      </span>
+                      {(() => {
+                        const config = CABANG_BADGE_CONFIG[reg.cabang_lomba] || {
+                          bg: 'bg-slate-50 hover:bg-slate-100',
+                          text: 'text-slate-700',
+                          border: 'border-slate-200',
+                          icon: 'fa-solid fa-trophy',
+                          iconColor: 'text-slate-500'
+                        };
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border shadow-2xs transition-all ${config.bg} ${config.text} ${config.border}`}>
+                            <i className={`${config.icon} ${config.iconColor || ''} text-[11px] shrink-0`}></i>
+                            <span className="truncate">{reg.cabang_lomba}</span>
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-2">

@@ -77,6 +77,14 @@ export function exportPesertaToExcel(data: PesertaExportItem[], filename = 'Data
     const waGuru = item.no_wa_pembimbing ? String(item.no_wa_pembimbing).trim() : '-';
     const noPeserta = item.no_peserta || (item.id ? item.id.split('-')[0].toUpperCase() : '-');
 
+    const formatMinat = (val?: string | null) => {
+      if (!val) return '-';
+      const clean = val.trim();
+      if (clean.toLowerCase().includes('berminat')) return 'Berminat';
+      if (clean.toLowerCase().includes('timbang') || clean === 'Mungkin') return 'Masih Dipertimbangkan';
+      return clean;
+    };
+
     return {
       'No.': index + 1,
       'No. Peserta': noPeserta,
@@ -89,7 +97,7 @@ export function exportPesertaToExcel(data: PesertaExportItem[], filename = 'Data
       'Nama Orang Tua / Wali': item.nama_ortu || '-',
       'WhatsApp Ortu': waOrtu,
       'WhatsApp Guru / Pembimbing': waGuru,
-      'Minat Masuk SD': item.minat_sekolah || '-',
+      'Minat Masuk SD': formatMinat(item.minat_sekolah),
       'Link Foto Peserta': item.foto_url || '-',
       'Waktu Pendaftaran': formatDateTime(item.created_at)
     };
