@@ -20,7 +20,7 @@ export default function DataPesertaPage() {
   const [confirmDelete, setConfirmDelete] = useState<{isOpen: boolean, id: string, name: string}>({ isOpen: false, id: '', name: '' });
   
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Data options for filter
   const cabangLombaList = [
@@ -423,43 +423,91 @@ export default function DataPesertaPage() {
         
         {/* Pagination Info / Footer */}
         {!loading && filteredData.length > 0 && (
-          <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-slate-500 font-medium">
-              Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredData.length)} dari {filteredData.length} data
-            </p>
+          <div className="bg-white border-t border-slate-200/80 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-xs text-slate-500 font-medium">
+                Menampilkan <span className="font-bold text-slate-800">{((currentPage - 1) * itemsPerPage) + 1}</span> - <span className="font-bold text-slate-800">{Math.min(currentPage * itemsPerPage, filteredData.length)}</span> dari <span className="font-bold text-slate-800">{filteredData.length}</span> data
+              </p>
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 pl-3 border-l border-slate-200">
+                <span>Baris:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:border-sky-500 cursor-pointer transition-colors"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
             
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
+              {/* Previous Page Button */}
               <button 
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-white hover:text-sky-600 disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer mr-1"
                 title="Halaman Sebelumnya"
               >
                 <i className="fa-solid fa-chevron-left text-[10px]"></i>
+                <span className="hidden sm:inline">Sebelumnya</span>
               </button>
               
-              <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar max-w-[200px] sm:max-w-none">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all ${
-                      currentPage === page 
-                      ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/30' 
-                      : 'border border-slate-200 text-slate-600 hover:bg-white hover:text-sky-600'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
+              {/* Truncated Page Numbers */}
+              <div className="flex items-center gap-1">
+                {(() => {
+                  const getRange = () => {
+                    if (totalPages <= 7) {
+                      return Array.from({ length: totalPages }, (_, i) => i + 1);
+                    }
+                    if (currentPage <= 4) {
+                      return [1, 2, 3, 4, 5, '...', totalPages];
+                    }
+                    if (currentPage >= totalPages - 3) {
+                      return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+                    }
+                    return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+                  };
+
+                  return getRange().map((page, idx) => {
+                    if (page === '...') {
+                      return (
+                        <span key={`ellipsis-${idx}`} className="w-8 h-8 flex items-center justify-center text-xs text-slate-400 font-bold select-none">
+                          •••
+                        </span>
+                      );
+                    }
+                    const isCurrent = currentPage === page;
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page as number)}
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                          isCurrent 
+                            ? 'bg-sky-600 text-white font-bold shadow-xs' 
+                            : 'border border-transparent hover:border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  });
+                })()}
               </div>
 
+              {/* Next Page Button */}
               <button 
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-white hover:text-sky-600 disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-colors"
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer ml-1"
                 title="Halaman Berikutnya"
               >
+                <span className="hidden sm:inline">Selanjutnya</span>
                 <i className="fa-solid fa-chevron-right text-[10px]"></i>
               </button>
             </div>

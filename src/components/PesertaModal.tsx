@@ -379,7 +379,7 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
                   <i className="fa-solid fa-xmark text-sm"></i>
                 </button>
 
-                <div className="p-4 sm:p-5 md:p-6 overflow-y-auto flex-1 custom-scrollbar md:pt-6">
+                <div className="p-4 sm:p-5 md:p-6 overflow-y-auto overflow-x-hidden flex-1 custom-scrollbar md:pt-6">
                   <div className="space-y-4">
                     {/* Alert */}
                     <div className="bg-[#f0f7ff] text-blue-700 p-3.5 rounded-[16px] text-xs font-medium border border-blue-100 flex items-start gap-3 md:pr-12">
