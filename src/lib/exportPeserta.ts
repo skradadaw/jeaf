@@ -5,6 +5,7 @@ export interface PesertaExportItem {
   no_peserta?: string | null;
   nama_anak: string;
   jenis_kelamin?: string | null;
+  tempat_lahir?: string | null;
   tgl_lahir?: string | null;
   asal_sekolah: string;
   cabang_lomba: string;
@@ -81,6 +82,7 @@ export function exportPesertaToExcel(data: PesertaExportItem[], filename = 'Data
       'No. Peserta': noPeserta,
       'Nama Peserta': item.nama_anak || '-',
       'Jenis Kelamin': item.jenis_kelamin || '-',
+      'Tempat Lahir': item.tempat_lahir || '-',
       'Tanggal Lahir': formatDate(item.tgl_lahir),
       'Asal Sekolah': item.asal_sekolah || '-',
       'Cabang Lomba': item.cabang_lomba || '-',
@@ -102,6 +104,7 @@ export function exportPesertaToExcel(data: PesertaExportItem[], filename = 'Data
     { wch: 18 }, // No. Peserta
     { wch: 28 }, // Nama Peserta
     { wch: 16 }, // Jenis Kelamin
+    { wch: 20 }, // Tempat Lahir
     { wch: 20 }, // Tanggal Lahir
     { wch: 32 }, // Asal Sekolah
     { wch: 22 }, // Cabang Lomba

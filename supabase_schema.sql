@@ -4,6 +4,7 @@ CREATE TABLE public.pendaftar (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     nama_anak TEXT NOT NULL,
     jenis_kelamin TEXT NOT NULL,
+    tempat_lahir TEXT,
     tgl_lahir DATE NOT NULL,
     asal_sekolah TEXT NOT NULL,
     cabang_lomba TEXT NOT NULL,
@@ -68,44 +69,11 @@ TO anon
 USING (bucket_id = 'foto-peserta');
  
 -- Tambahan kolom untuk fitur Penilaian Juri
-ALTER TABLE public.pendaftar ADD COLUMN nilai_total INTEGER, ADD COLUMN detail_nilai JSONB, ADD COLUMN catatan_juri TEXT;
+ALTER TABLE public.pendaftar ADD COLUMN IF NOT EXISTS nilai_total INTEGER, ADD COLUMN IF NOT EXISTS detail_nilai JSONB, ADD COLUMN IF NOT EXISTS catatan_juri TEXT;
 
--- Tambahan kolom untuk nomor peserta urut & konsisten
-ALTER TABLE public.pendaftar ADD COLUMN no_peserta TEXT;
-
--- Script UPDATE untuk mengisi data lama (Jalankan sekali di SQL Editor Supabase)
--- DO $$
--- DECLARE
---     rec RECORD;
---     prefix TEXT;
---     seq INT;
--- BEGIN
---     FOR rec IN 
---         SELECT id, cabang_lomba, created_at 
---         FROM public.pendaftar 
---         ORDER BY created_at ASC
---     LOOP
---         CASE rec.cabang_lomba
---             WHEN 'Adzan' THEN prefix := 'ADZ';
---             WHEN 'Fashion Show' THEN prefix := 'FSH';
---             WHEN 'MHQ' THEN prefix := 'MHQ';
---             WHEN 'Karya Kolase' THEN prefix := 'KOL';
---             WHEN 'Mewarnai' THEN prefix := 'WAR';
---             WHEN 'Tendangan Penalti' THEN prefix := 'PEN';
---             WHEN 'Menyanyi Solo' THEN prefix := 'NYA';
---             ELSE prefix := 'JEA';
---         END CASE;
---         
---         SELECT COUNT(*) INTO seq
---         FROM public.pendaftar
---         WHERE cabang_lomba = rec.cabang_lomba AND created_at <= rec.created_at;
---         
---         UPDATE public.pendaftar
---         SET no_peserta = prefix || '-2026-' || LPAD(seq::text, 3, '0')
---         WHERE id = rec.id;
---     END LOOP;
--- END;
--- $$ LANGUAGE plpgsql;
+-- Tambahan kolom untuk nomor peserta & tempat lahir
+ALTER TABLE public.pendaftar ADD COLUMN IF NOT EXISTS no_peserta TEXT;
+ALTER TABLE public.pendaftar ADD COLUMN IF NOT EXISTS tempat_lahir TEXT;
 
 -- Trigger untuk membuat nomor peserta otomatis saat ada pendaftar baru
 CREATE OR REPLACE FUNCTION generate_no_peserta()
@@ -118,10 +86,10 @@ BEGIN
         WHEN 'Adzan' THEN prefix := 'ADZ';
         WHEN 'Fashion Show' THEN prefix := 'FSH';
         WHEN 'MHQ' THEN prefix := 'MHQ';
-        WHEN 'Karya Kolase' THEN prefix := 'KOL';
+        WHEN 'Karya Kolase' THEN prefix := 'KLS';
         WHEN 'Mewarnai' THEN prefix := 'WAR';
-        WHEN 'Tendangan Penalti' THEN prefix := 'PEN';
-        WHEN 'Menyanyi Solo' THEN prefix := 'NYA';
+        WHEN 'Tendangan Penalti' THEN prefix := 'PNL';
+        WHEN 'Menyanyi Solo' THEN prefix := 'NYS';
         ELSE prefix := 'JEA';
     END CASE;
 

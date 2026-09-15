@@ -59,7 +59,7 @@ export default function DashboardPage() {
   const kuotaTersisa = Math.max(0, targetPeserta - totalPendaftar);
   const persentaseTarget = targetPeserta > 0 ? ((totalPendaftar / targetPeserta) * 100).toFixed(1) : "0";
 
-  const minatPPDB = registrations.filter(r => r.minat_sekolah === 'Ya, Berminat').length;
+  const minatPPDB = registrations.filter(r => r.minat_sekolah === 'Berminat' || r.minat_sekolah === 'Ya, Berminat').length;
 
   const hadirCount = registrations.filter(r => r.status_kehadiran === 'Hadir').length;
   const persentaseHadir = totalPendaftar > 0 ? ((hadirCount / totalPendaftar) * 100).toFixed(1) : "0";

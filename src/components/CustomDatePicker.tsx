@@ -115,15 +115,15 @@ export default function CustomDatePicker({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between transition-all outline-none font-medium text-left
-          ${size === 'sm' ? 'rounded-xl border px-3 py-2 text-sm' : 'rounded-2xl border-2 px-4 py-3'}
-          ${isOpen ? 'border-sky-400 bg-white ring-4 ring-sky-400/20' : 'border-slate-200 bg-slate-50 hover:border-sky-300'}
+        className={`w-full flex items-center justify-between transition-all outline-none font-medium text-left text-sm
+          ${size === 'sm' ? 'rounded-lg border border-slate-200 px-3 py-2 text-xs' : 'rounded-xl border border-slate-200 px-4 py-2.5 sm:py-3 text-sm'}
+          ${isOpen ? 'border-sky-500 bg-white ring-4 ring-sky-500/15' : 'bg-slate-50/70 hover:bg-white focus:bg-white hover:border-slate-300'}
         `}
       >
-        <span className={value ? 'text-slate-700' : 'text-slate-400'}>
+        <span className={value ? 'text-slate-800 font-medium' : 'text-slate-400 font-medium'}>
           {value ? formatDate(value) : placeholder}
         </span>
-        <i className={`fa-regular fa-calendar text-sky-500 ${size === 'sm' ? 'text-base' : 'text-lg'}`}></i>
+        <i className={`fa-regular fa-calendar text-sky-500 ${size === 'sm' ? 'text-xs' : 'text-sm'}`}></i>
       </button>
 
       <AnimatePresence>

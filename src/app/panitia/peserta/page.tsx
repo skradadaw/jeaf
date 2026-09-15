@@ -40,6 +40,14 @@ export default function DataPesertaPage() {
     }
   };
 
+  const getWaLink = (num?: string | null) => {
+    if (!num) return '#';
+    let clean = num.replace(/\D/g, '');
+    if (clean.startsWith('0')) clean = clean.substring(1);
+    if (clean.startsWith('62')) clean = clean.substring(2);
+    return `https://wa.me/62${clean}`;
+  };
+
   const fetchRegistrations = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -261,11 +269,23 @@ export default function DataPesertaPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
+                      <div className="flex items-start gap-2">
+                        <div className="w-6 h-6 rounded bg-amber-50 text-amber-500 flex items-center justify-center shrink-0 mt-0.5">
                           <i className="fa-solid fa-school text-[10px]"></i>
                         </div>
-                        <p className="text-xs font-semibold text-slate-700 truncate max-w-[150px]">{reg.asal_sekolah}</p>
+                        <div>
+                          <p className="text-xs font-semibold text-slate-700 truncate max-w-[150px]">{reg.asal_sekolah}</p>
+                          {reg.minat_sekolah && (
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 mt-1 border ${
+                              reg.minat_sekolah === 'Berminat' 
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                : 'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}>
+                              <i className={`fa-solid ${reg.minat_sekolah === 'Berminat' ? 'fa-check' : 'fa-clock'} text-[9px]`}></i>
+                              SPMB: {reg.minat_sekolah}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -276,7 +296,7 @@ export default function DataPesertaPage() {
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-2">
                         {reg.no_wa && (
-                          <a href={`https://wa.me/${reg.no_wa.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[11px] font-bold text-slate-600 hover:text-emerald-600 group/wa transition-colors w-fit" title="Chat Orang Tua">
+                          <a href={getWaLink(reg.no_wa)} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[11px] font-bold text-slate-600 hover:text-emerald-600 group/wa transition-colors w-fit" title="Chat Orang Tua">
                             <div className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-500 flex items-center justify-center group-hover/wa:bg-emerald-500 group-hover/wa:text-white transition-colors">
                               <i className="fa-brands fa-whatsapp text-sm"></i>
                             </div>
@@ -284,7 +304,7 @@ export default function DataPesertaPage() {
                           </a>
                         )}
                         {reg.no_wa_pembimbing && (
-                          <a href={`https://wa.me/${reg.no_wa_pembimbing.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[11px] font-bold text-slate-600 hover:text-teal-600 group/wa transition-colors w-fit" title="Chat Guru">
+                          <a href={getWaLink(reg.no_wa_pembimbing)} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[11px] font-bold text-slate-600 hover:text-teal-600 group/wa transition-colors w-fit" title="Chat Guru">
                             <div className="w-6 h-6 rounded-md bg-teal-50 text-teal-500 flex items-center justify-center group-hover/wa:bg-teal-500 group-hover/wa:text-white transition-colors">
                               <i className="fa-brands fa-whatsapp text-sm"></i>
                             </div>

@@ -32,11 +32,11 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
     if (!formData) return;
     setIsSaving(true);
     
-    const { id, nama_anak, nama_ortu, asal_sekolah, tgl_lahir, no_wa, no_wa_pembimbing, cabang_lomba } = formData;
+    const { id, nama_anak, nama_ortu, asal_sekolah, tempat_lahir, tgl_lahir, no_wa, no_wa_pembimbing, cabang_lomba, minat_sekolah } = formData;
     
     const { error } = await supabase
       .from('pendaftar')
-      .update({ nama_anak, nama_ortu, asal_sekolah, tgl_lahir, no_wa, no_wa_pembimbing, cabang_lomba })
+      .update({ nama_anak, nama_ortu, asal_sekolah, tempat_lahir, tgl_lahir, no_wa, no_wa_pembimbing, cabang_lomba, minat_sekolah })
       .eq('id', id);
 
     setIsSaving(false);
@@ -207,13 +207,26 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
                         <input type="text" value={formData.asal_sekolah} onChange={e => setFormData({...formData, asal_sekolah: e.target.value})} className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-[#0ea5e9]/20 focus:border-[#0ea5e9] outline-none transition-all" />
                       </div>
                       
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Tanggal Lahir</label>
-                        <CustomDatePicker 
-                          size="sm"
-                          value={formData.tgl_lahir ? new Date(formData.tgl_lahir) : null} 
-                          onChange={(date) => setFormData({...formData, tgl_lahir: date ? date.toISOString().split('T')[0] : ''})} 
-                        />
+                      <div className="grid grid-cols-2 gap-3.5">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Tempat Lahir</label>
+                          <input type="text" value={formData.tempat_lahir || ''} onChange={e => setFormData({...formData, tempat_lahir: e.target.value})} className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-[#0ea5e9]/20 focus:border-[#0ea5e9] outline-none transition-all" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Tanggal Lahir</label>
+                          <CustomDatePicker 
+                            size="sm"
+                            value={formData.tgl_lahir ? new Date(formData.tgl_lahir) : null} 
+                            onChange={(date) => {
+                              if (!date) {
+                                setFormData({...formData, tgl_lahir: ''});
+                                return;
+                              }
+                              const localStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                              setFormData({...formData, tgl_lahir: localStr});
+                            }} 
+                          />
+                        </div>
                       </div>
                       
                       <div className="grid grid-cols-2 gap-3.5">
@@ -241,6 +254,20 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
                           value={formData.cabang_lomba} 
                           onChange={val => setFormData({...formData, cabang_lomba: val})}
                           options={cabangLombaList.map(cab => ({ value: cab, label: cab, icon: 'fa-solid fa-trophy' }))}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Minat Masuk SD Plus 3 (SPMB)</label>
+                        <CustomSelect 
+                          size="sm"
+                          value={formData.minat_sekolah || ''} 
+                          onChange={val => setFormData({...formData, minat_sekolah: val})}
+                          placeholder="Pilih status minat..."
+                          options={[
+                            { value: 'Berminat', label: 'Berminat', icon: 'fa-solid fa-circle-check', color: 'bg-emerald-100 text-emerald-600' },
+                            { value: 'Masih Dipertimbangkan', label: 'Masih Dipertimbangkan', icon: 'fa-solid fa-clock-rotate-left', color: 'bg-amber-100 text-amber-600' }
+                          ]}
                         />
                       </div>
                     </div>
