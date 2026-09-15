@@ -5,6 +5,7 @@ import BadgeStatus from '@/components/BadgeStatus';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { KUOTA_PER_CABANG, TOTAL_KUOTA_TARGET, CABANG_LOMBA_LIST } from '@/lib/constants';
 
 export default function DashboardPage() {
   const [registrations, setRegistrations] = useState<any[]>([]);
@@ -54,7 +55,7 @@ export default function DashboardPage() {
   };
 
   const totalPendaftar = registrations.length;
-  const targetPeserta = 500;
+  const targetPeserta = TOTAL_KUOTA_TARGET;
   const kuotaTersisa = Math.max(0, targetPeserta - totalPendaftar);
   const persentaseTarget = targetPeserta > 0 ? ((totalPendaftar / targetPeserta) * 100).toFixed(1) : "0";
 
@@ -76,21 +77,11 @@ export default function DashboardPage() {
     }
   };
 
-  // Konfigurasi kuota per cabang lomba (disamakan dengan landing page)
-  const kuotaPerCabang: Record<string, number> = {
-    'MHQ': 60,
-    'Karya Kolase': 60,
-    'Mewarnai': 130,
-    'Menyanyi Solo': 60,
-    'Fashion Show': 60,
-    'Adzan': 60,
-    'Tendangan Penalti': 70
-  };
-
-  // Kalkulasi statistik kuota real-time
-  const cabangStats = Object.keys(kuotaPerCabang).map(cabang => {
-    const terisi = registrations.filter(r => r.cabang_lomba === cabang).length;
-    const kuota = kuotaPerCabang[cabang];
+  // Kalkulasi statistik kuota real-time tersinkronisasi penuh dengan landing page & form
+  const cabangStats = CABANG_LOMBA_LIST.map(item => {
+    const cabang = item.dbValue;
+    const terisi = registrations.filter(r => (r.cabang_lomba || '').trim() === cabang).length;
+    const kuota = item.quota;
     const sisa = Math.max(0, kuota - terisi);
     const persentase = kuota > 0 ? ((terisi / kuota) * 100).toFixed(0) : 0;
     return { cabang, terisi, kuota, sisa, persentase };

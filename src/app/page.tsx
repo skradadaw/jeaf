@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
+import { CABANG_LOMBA_LIST } from '@/lib/constants';
 
 export default function Home() {
   const [activeFilter, setActiveFilter] = useState('Semua');
@@ -14,8 +15,8 @@ export default function Home() {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
-    // Target: 10 Oktober 2026 08:00 WIB (+07:00) - Waktu Acara Dimulai
-    const targetDate = new Date('2026-10-10T08:00:00+07:00').getTime();
+    // Target: 25 September 2026 23:59:59 WIB (+07:00) - Batas Pendaftaran Ditutup
+    const targetDate = new Date('2026-09-25T23:59:59+07:00').getTime();
     
     const interval = setInterval(() => {
       const now = new Date().getTime();
@@ -46,8 +47,10 @@ export default function Home() {
       if (!error && data) {
         const counts: Record<string, number> = {};
         data.forEach((pendaftar) => {
-          const lomba = pendaftar.cabang_lomba;
-          counts[lomba] = (counts[lomba] || 0) + 1;
+          const lomba = pendaftar.cabang_lomba?.trim();
+          if (lomba) {
+            counts[lomba] = (counts[lomba] || 0) + 1;
+          }
         });
         setParticipantCounts(counts);
       }
@@ -56,20 +59,16 @@ export default function Home() {
     fetchCounts();
 
     const channel = supabase
-      .channel('public:pendaftar')
+      .channel('public:pendaftar_counts')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'pendaftar'
         },
-        (payload) => {
-          const newLomba = payload.new.cabang_lomba;
-          setParticipantCounts(prev => ({
-            ...prev,
-            [newLomba]: (prev[newLomba] || 0) + 1
-          }));
+        () => {
+          fetchCounts();
         }
       )
       .subscribe();
@@ -79,15 +78,7 @@ export default function Home() {
     };
   }, []);
 
-  const lombaList = [
-    { id: 1, title: 'Lomba MHQ', category: 'islami', icon: '📖', target: 'TK A & B', desc: 'Uji hafalan surah-surah pendek pilihan dengan tartil, makhraj yang benar, dan adab tilawah.', quota: 60, price: 'Gratis', dbValue: 'MHQ', classes: { border: 'border-emerald-200', tagBg: 'bg-emerald-100', tagText: 'text-emerald-800', priceText: 'text-emerald-600', btnBg: 'bg-emerald-50', btnHover: 'hover:bg-emerald-600', btnText: 'text-emerald-700' } },
-    { id: 2, title: 'Lomba Karya Kolase', category: 'seni', icon: '✂️', target: 'TK A & B', desc: 'Berkreasi membuat seni kolase yang indah untuk melatih kreativitas dan motorik halus.', quota: 60, price: 'Gratis', dbValue: 'Karya Kolase', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
-    { id: 3, title: 'Lomba Mewarnai', category: 'seni', icon: '🎨', target: 'TK A & B', desc: 'Mengekspresikan imajinasi dan gradasi warna ceria pada sketsa petualang cilik JinGa.', quota: 130, price: 'Gratis', dbValue: 'Mewarnai', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
-    { id: 4, title: 'Lomba Menyanyi Solo', category: 'seni', icon: '🎵', target: 'TK A & B', desc: 'Menumbuhkan keberanian dan bakat tarik suara anak dengan lagu-lagu anak ceria.', quota: 60, price: 'Gratis', dbValue: 'Menyanyi Solo', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
-    { id: 5, title: 'Lomba Fashion Show', category: 'seni', icon: '👗', target: 'Putra & Putri', desc: 'Peragaan busana muslim/muslimah cilik bertema "Little Explorer" yang syar\'i, anggun, dan percaya diri.', quota: 60, price: 'Gratis', dbValue: 'Fashion Show', classes: { border: 'border-amber-200', tagBg: 'bg-amber-100', tagText: 'text-amber-800', priceText: 'text-amber-600', btnBg: 'bg-amber-50', btnHover: 'hover:bg-amber-600', btnText: 'text-amber-700' } },
-    { id: 6, title: 'Lomba Adzan', category: 'islami', icon: '🗣️', target: 'Khusus Ikhwan', desc: 'Melantunkan panggilan adzan Subuh/Dzuhur dengan kemerduan nada, kejelasan makhraj, dan adab muadzin.', quota: 60, price: 'Gratis', dbValue: 'Adzan', classes: { border: 'border-emerald-200', tagBg: 'bg-emerald-100', tagText: 'text-emerald-800', priceText: 'text-emerald-600', btnBg: 'bg-emerald-50', btnHover: 'hover:bg-emerald-600', btnText: 'text-emerald-700' } },
-    { id: 7, title: 'Lomba Tendangan Penalti', category: 'ketangkasan', icon: '⚽', target: 'Ketangkasan', desc: 'Tantangan ketepatan menendang bola ke gawang untuk melatih fokus dan motorik anak.', quota: 70, price: 'Gratis', dbValue: 'Tendangan Penalti', classes: { border: 'border-sky-200', tagBg: 'bg-sky-100', tagText: 'text-sky-800', priceText: 'text-sky-600', btnBg: 'bg-sky-50', btnHover: 'hover:bg-sky-600', btnText: 'text-sky-700' } },
-  ];
+  const lombaList = CABANG_LOMBA_LIST;
 
   const filteredLomba = lombaList.filter(lomba => activeFilter === 'Semua' || lomba.category === activeFilter);
 
@@ -255,34 +246,54 @@ export default function Home() {
                     </div>
 
                     
-                    <div className="bg-white/10 backdrop-blur-md p-4 sm:p-5 rounded-3xl border border-white/20 shadow-xl max-w-xl mx-auto lg:mx-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 mb-3">
-                            <span className="text-[11px] sm:text-sm font-bold uppercase tracking-wider text-amber-300 flex items-center justify-center sm:justify-start gap-1.5 text-center">
-                                <i className="fa-regular fa-clock animate-pulse"></i> Menuju Hari Petualangan
-                            </span>
-                            <div className="flex justify-center sm:justify-end">
-                                <span className="text-[10px] sm:text-[11px] bg-emerald-500/80 px-3 py-1 sm:px-2.5 sm:py-0.5 rounded-full font-bold shadow-sm">
-                                    Pendaftaran Dibuka
+                    {/* Countdown Box with Centered Mobile-Optimized Warning Style */}
+                    <div className="bg-slate-900/80 backdrop-blur-xl p-4 sm:p-6 rounded-3xl border border-rose-500/40 shadow-2xl shadow-slate-950/60 max-w-xl mx-auto lg:mx-0 relative overflow-hidden">
+                        {/* Header: Status Warning & Judul (Centered) */}
+                        <div className="flex flex-col items-center justify-center text-center gap-1.5 mb-3.5 pb-3 border-b border-white/10">
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="relative flex h-2 w-2 shrink-0">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                                </span>
+                                <span className="bg-rose-600 text-white text-[10px] sm:text-[11px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
+                                    <i className="fa-solid fa-triangle-exclamation text-[9px]"></i> Peringatan
                                 </span>
                             </div>
+                            <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide text-amber-300">
+                                Pendaftaran Segera Ditutup!
+                            </h3>
                         </div>
-                        <div className="grid grid-cols-4 gap-2 sm:gap-3 text-center" id="countdownTimer">
-                            <div className="bg-slate-900/60 rounded-2xl p-2 sm:p-3 border border-white/10">
-                                <span className="block text-2xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="days">{String(timeLeft.days).padStart(2, '0')}</span>
-                                <span className="text-[10px] sm:text-xs text-sky-200 uppercase font-semibold">Hari</span>
+
+                        {/* 4 Cards Countdown Grid */}
+                        <div className="grid grid-cols-4 gap-1.5 sm:gap-3 text-center" id="countdownTimer">
+                            <div className="bg-slate-950/60 rounded-xl sm:rounded-2xl p-2 sm:p-3 border border-white/10 shadow-inner">
+                                <span className="block text-xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="days">{String(timeLeft.days).padStart(2, '0')}</span>
+                                <span className="text-[9px] sm:text-xs text-sky-200 uppercase font-bold tracking-wider">Hari</span>
                             </div>
-                            <div className="bg-slate-900/60 rounded-2xl p-2 sm:p-3 border border-white/10">
-                                <span className="block text-2xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="hours">{String(timeLeft.hours).padStart(2, '0')}</span>
-                                <span className="text-[10px] sm:text-xs text-sky-200 uppercase font-semibold">Jam</span>
+                            <div className="bg-slate-950/60 rounded-xl sm:rounded-2xl p-2 sm:p-3 border border-white/10 shadow-inner">
+                                <span className="block text-xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="hours">{String(timeLeft.hours).padStart(2, '0')}</span>
+                                <span className="text-[9px] sm:text-xs text-sky-200 uppercase font-bold tracking-wider">Jam</span>
                             </div>
-                            <div className="bg-slate-900/60 rounded-2xl p-2 sm:p-3 border border-white/10">
-                                <span className="block text-2xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="minutes">{String(timeLeft.minutes).padStart(2, '0')}</span>
-                                <span className="text-[10px] sm:text-xs text-sky-200 uppercase font-semibold">Menit</span>
+                            <div className="bg-slate-950/60 rounded-xl sm:rounded-2xl p-2 sm:p-3 border border-white/10 shadow-inner">
+                                <span className="block text-xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="minutes">{String(timeLeft.minutes).padStart(2, '0')}</span>
+                                <span className="text-[9px] sm:text-xs text-sky-200 uppercase font-bold tracking-wider">Menit</span>
                             </div>
-                            <div className="bg-slate-900/60 rounded-2xl p-2 sm:p-3 border border-white/10">
-                                <span className="block text-2xl sm:text-3xl font-extrabold text-amber-400 font-bubbly" id="seconds">{String(timeLeft.seconds).padStart(2, '0')}</span>
-                                <span className="text-[10px] sm:text-xs text-sky-200 uppercase font-semibold">Detik</span>
+                            <div className="bg-slate-950/60 rounded-xl sm:rounded-2xl p-2 sm:p-3 border border-white/10 shadow-inner">
+                                <span className="block text-xl sm:text-3xl font-extrabold text-amber-400 font-bubbly animate-pulse" id="seconds">{String(timeLeft.seconds).padStart(2, '0')}</span>
+                                <span className="text-[9px] sm:text-xs text-sky-200 uppercase font-bold tracking-wider">Detik</span>
                             </div>
+                        </div>
+
+                        {/* Footer & Tanggal di Bawah Border Garis */}
+                        <div className="mt-4 pt-3.5 border-t border-white/10 flex flex-col items-center justify-center gap-2.5 text-center">
+                            <span className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs bg-amber-400/15 border border-amber-400/30 text-amber-300 px-3 py-1 rounded-full font-bold shadow-sm">
+                                <i className="fa-regular fa-calendar-xmark text-amber-400 text-xs"></i>
+                                <span>Batas Akhir: 25 September 2026</span>
+                            </span>
+                            <span className="inline-flex items-center justify-center gap-1.5 text-[11px] sm:text-xs text-amber-200/90 font-medium">
+                                <i className="fa-solid fa-fire text-amber-400 animate-bounce text-xs"></i>
+                                Segera daftarkan ananda sebelum kuota penuh!
+                            </span>
                         </div>
                     </div>
 
@@ -390,85 +401,132 @@ export default function Home() {
             <div className="relative w-full">
                 {/* Ghost Grid to preserve height exactly so footer NEVER jumps */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 opacity-0 pointer-events-none select-none" aria-hidden="true">
-                    {lombaList.map((lomba) => (
-                        <div key={lomba.id} className="lomba-card bg-white rounded-3xl p-6 border-2 flex flex-col justify-between invisible">
-                            <div>
-                                <div className="flex items-start justify-between mb-4">
-                                    <span className="text-3xl">{lomba.icon}</span>
-                                    <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full border border-transparent">
-                                        Sisa Kuota: {Math.max(0, lomba.quota - (participantCounts[lomba.dbValue] || 0))}
-                                    </span>
-                                </div>
-                                <h3 className="text-xl font-bold font-bubbly mb-2">{lomba.title}</h3>
-                                <p className="text-xs mb-4 leading-relaxed">
-                                    {lomba.desc}
-                                </p>
-                                <div className="space-y-3 text-xs mb-4 p-3.5 rounded-2xl border border-transparent">
-                                    <div className="space-y-1.5">
-                                        <div className="flex justify-between items-end">
-                                            <span className="font-semibold">Kapasitas Pendaftar</span>
-                                            <strong className="text-sm">{participantCounts[lomba.dbValue] || 0} <span className="text-xs font-normal">/ {lomba.quota}</span></strong>
+                    {lombaList.map((lomba) => {
+                        const terisi = participantCounts[lomba.dbValue] || 0;
+                        const sisa = Math.max(0, lomba.quota - terisi);
+                        const persentase = lomba.quota > 0 ? Math.min(100, Math.round((terisi / lomba.quota) * 100)) : 0;
+                        const isFull = sisa === 0;
+
+                        return (
+                            <div key={lomba.id} className="lomba-card bg-white rounded-3xl p-6 border-2 flex flex-col justify-between invisible">
+                                <div>
+                                    <div className="flex items-start justify-between mb-4">
+                                        <span className="text-3xl">{lomba.icon}</span>
+                                        <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full border border-transparent">
+                                            {isFull ? 'KUOTA PENUH' : `Sisa Kuota: ${sisa}`}
+                                        </span>
+                                    </div>
+                                    <h3 className="text-xl font-bold font-bubbly mb-2">{lomba.title}</h3>
+                                    <p className="text-xs mb-4 leading-relaxed">
+                                        {lomba.desc}
+                                    </p>
+                                    <div className="space-y-3 text-xs mb-4 p-3.5 rounded-2xl border border-transparent">
+                                        <div className="space-y-1.5">
+                                            <div className="flex justify-between items-end">
+                                                <span className="font-semibold">Kapasitas Pendaftar</span>
+                                                <strong className="text-sm">{terisi} <span className="text-xs font-normal">/ {lomba.quota}</span></strong>
+                                            </div>
+                                            <div className="w-full h-2 rounded-full"></div>
                                         </div>
-                                        <div className="w-full h-1.5 rounded-full"></div>
-                                    </div>
-                                    <div className="flex justify-between items-center pt-2 border-t border-transparent">
-                                        <span className="font-semibold">Biaya Pendaftaran</span> 
-                                        <strong className="font-bold text-sm px-2 py-0.5 rounded-md border border-transparent">{lomba.price}</strong>
+                                        <div className="flex justify-between items-center pt-2 border-t border-transparent">
+                                            <span className="font-semibold">Biaya Pendaftaran</span> 
+                                            <strong className="font-bold text-sm px-2 py-0.5 rounded-md border border-transparent">{lomba.price}</strong>
+                                        </div>
                                     </div>
                                 </div>
+                                <div className="w-full py-2.5 px-4 font-bold text-xs border border-transparent rounded-xl flex items-center justify-center gap-1.5">
+                                    <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
+                                </div>
                             </div>
-                            <div className="w-full py-2.5 px-4 font-bold text-xs border border-transparent rounded-xl flex items-center justify-center gap-1.5">
-                                <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 {/* Actual Animated Grid */}
                 <motion.div layout className="absolute inset-0 flex flex-wrap gap-6 z-10 content-start" id="lombaCardsGrid">
                     <AnimatePresence mode="popLayout">
-                    {filteredLomba.map((lomba) => (
-                        <motion.div 
-                            key={lomba.id} 
-                            layout
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            transition={{ duration: 0.3, ease: "easeInOut" }}
-                            className={`w-full md:w-[calc(50%-0.75rem)] lg:w-[calc(25%-1.125rem)] lomba-card ${lomba.category} bg-white rounded-3xl p-6 border-2 ${lomba.classes.border} shadow-md hover:shadow-xl transition-all card-3d-hover flex flex-col justify-between`}
-                        >
-                            <div>
-                                <div className="flex items-start justify-between mb-4">
-                                    <span className="text-3xl">{lomba.icon}</span>
-                                    <span className={`text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full ${lomba.classes.tagBg} ${lomba.classes.tagText}`}>
-                                        Sisa Kuota: {Math.max(0, lomba.quota - (participantCounts[lomba.dbValue] || 0))}
-                                    </span>
-                                </div>
-                                <h3 className="text-xl font-bold font-bubbly text-slate-900 mb-2">{lomba.title}</h3>
-                                <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                                    {lomba.desc}
-                                </p>
-                                <div className="space-y-3 text-xs mb-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-                                    <div className="space-y-1.5">
-                                        <div className="flex justify-between items-end">
-                                            <span className="font-semibold text-slate-500">Kapasitas Pendaftar</span>
-                                            <strong className="text-slate-700 text-sm">{participantCounts[lomba.dbValue] || 0} <span className="text-xs text-slate-400 font-normal">/ {lomba.quota}</span></strong>
+                    {filteredLomba.map((lomba) => {
+                        const terisi = participantCounts[lomba.dbValue] || 0;
+                        const sisa = Math.max(0, lomba.quota - terisi);
+                        const persentase = lomba.quota > 0 ? Math.min(100, Math.round((terisi / lomba.quota) * 100)) : 0;
+                        const isFull = sisa === 0;
+
+                        return (
+                            <motion.div 
+                                key={lomba.id} 
+                                layout
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ duration: 0.3, ease: "easeInOut" }}
+                                className={`w-full md:w-[calc(50%-0.75rem)] lg:w-[calc(25%-1.125rem)] lomba-card ${lomba.category} bg-white rounded-3xl p-6 border-2 ${lomba.classes.border} shadow-md hover:shadow-xl transition-all card-3d-hover flex flex-col justify-between`}
+                            >
+                                <div>
+                                    <div className="flex items-start justify-between mb-4">
+                                        <span className="text-3xl">{lomba.icon}</span>
+                                        <span className={`text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full border transition-colors ${
+                                            isFull 
+                                                ? 'bg-rose-100 text-rose-700 border-rose-200' 
+                                                : sisa <= 10 
+                                                    ? 'bg-amber-100 text-amber-800 border-amber-200' 
+                                                    : `${lomba.classes.tagBg} ${lomba.classes.tagText} border-transparent`
+                                        }`}>
+                                            {isFull ? 'KUOTA PENUH' : `Sisa Kuota: ${sisa}`}
+                                        </span>
+                                    </div>
+                                    <h3 className="text-xl font-bold font-bubbly text-slate-900 mb-2">{lomba.title}</h3>
+                                    <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+                                        {lomba.desc}
+                                    </p>
+                                    <div className="space-y-3 text-xs mb-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                                        <div className="space-y-1.5">
+                                            <div className="flex justify-between items-end">
+                                                <span className="font-semibold text-slate-500">Kapasitas Pendaftar</span>
+                                                <strong className="text-slate-700 text-sm">{terisi} <span className="text-xs text-slate-400 font-normal">/ {lomba.quota}</span></strong>
+                                            </div>
+                                            <div className="w-full bg-slate-200/80 rounded-full h-2 overflow-hidden relative shadow-inner">
+                                                <motion.div 
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${persentase}%` }}
+                                                    transition={{ duration: 1.2, ease: "easeOut" }}
+                                                    className={`h-full rounded-full ${
+                                                        isFull ? 'bg-rose-500' :
+                                                        sisa <= 10 ? 'bg-amber-500' :
+                                                        lomba.classes.progressBar
+                                                    }`}
+                                                    style={{
+                                                        backgroundColor: isFull ? '#EF4444' : sisa <= 10 ? '#F59E0B' : lomba.progressHex
+                                                    }}
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="w-full bg-slate-200/80 rounded-full h-1.5 overflow-hidden">
-                                            <div className={`h-full rounded-full ${lomba.classes.tagBg.replace('100', '400')} transition-all duration-1000 ease-out`} style={{ width: `${Math.min(100, ((participantCounts[lomba.dbValue] || 0) / lomba.quota) * 100)}%` }}></div>
+                                        <div className="flex justify-between items-center pt-2 border-t border-slate-200/80">
+                                            <span className="font-semibold text-slate-500">Biaya Pendaftaran</span> 
+                                            <strong className={`${lomba.classes.priceText} font-bold text-sm bg-white px-2 py-0.5 rounded-md border border-slate-100 shadow-sm`}>{lomba.price}</strong>
                                         </div>
                                     </div>
-                                    <div className="flex justify-between items-center pt-2 border-t border-slate-200/80">
-                                        <span className="font-semibold text-slate-500">Biaya Pendaftaran</span> 
-                                        <strong className={`${lomba.classes.priceText} font-bold text-sm bg-white px-2 py-0.5 rounded-md border border-slate-100 shadow-sm`}>{lomba.price}</strong>
-                                    </div>
                                 </div>
-                            </div>
-                            <Link href="/daftar" className={`w-full py-2.5 rounded-xl ${lomba.classes.btnBg} ${lomba.classes.btnHover} hover:text-white ${lomba.classes.btnText} font-bold text-xs transition-colors flex items-center justify-center gap-1.5`}>
-                                <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
-                            </Link>
-                        </motion.div>
-                    ))}
+                                <Link 
+                                    href={isFull ? '#' : `/daftar?lomba=${encodeURIComponent(lomba.dbValue)}`} 
+                                    className={`w-full py-2.5 rounded-xl ${
+                                        isFull 
+                                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 pointer-events-none' 
+                                            : `${lomba.classes.btnBg} ${lomba.classes.btnHover} hover:text-white ${lomba.classes.btnText}`
+                                    } font-bold text-xs transition-colors flex items-center justify-center gap-1.5`}
+                                >
+                                    {isFull ? (
+                                        <>
+                                            <i className="fa-solid fa-ban"></i> Kuota Penuh
+                                        </>
+                                    ) : (
+                                        <>
+                                            <i className="fa-solid fa-plus-circle"></i> Pilih Lomba Ini
+                                        </>
+                                    )}
+                                </Link>
+                            </motion.div>
+                        );
+                    })}
                     </AnimatePresence>
                 </motion.div>
             </div>

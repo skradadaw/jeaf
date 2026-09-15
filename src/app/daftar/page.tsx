@@ -1,15 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import CustomDatePicker from '@/components/CustomDatePicker';
 import CustomSelect from '@/components/CustomSelect';
 import { supabase } from '@/lib/supabase';
 import QRCode from 'react-qr-code';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
+import { CABANG_LOMBA_LIST, KUOTA_PER_CABANG, PREFIX_PER_CABANG } from '@/lib/constants';
 
-export default function DaftarPage() {
+function DaftarFormContent() {
+    const searchParams = useSearchParams();
+    const queryLomba = searchParams.get('lomba');
+
     const [formData, setFormData] = useState({
         namaAnak: '',
         jenisKelamin: '',
@@ -22,10 +27,56 @@ export default function DaftarPage() {
         lomba: '',
         minatSekolah: ''
     });
+
     const [fileError, setFileError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [registeredData, setRegisteredData] = useState<any>(null);
+    const [lombaCounts, setLombaCounts] = useState<Record<string, number>>({});
+    const [isLoadingCounts, setIsLoadingCounts] = useState(true);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Ambil kuota dan jumlah pendaftar real-time
+    useEffect(() => {
+        const fetchCounts = async () => {
+            const { data, error } = await supabase
+                .from('pendaftar')
+                .select('cabang_lomba');
+
+            if (!error && data) {
+                const counts: Record<string, number> = {};
+                data.forEach((row: any) => {
+                    const c = (row.cabang_lomba || '').trim();
+                    if (c) counts[c] = (counts[c] || 0) + 1;
+                });
+                setLombaCounts(counts);
+            }
+            setIsLoadingCounts(false);
+        };
+
+        fetchCounts();
+
+        const channel = supabase
+            .channel('realtime-daftar-pendaftar')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'pendaftar' },
+                () => {
+                    fetchCounts();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
+    // Set pilihan lomba dari URL query param jika ada
+    useEffect(() => {
+        if (queryLomba && KUOTA_PER_CABANG[queryLomba]) {
+            setFormData(prev => ({ ...prev, lomba: queryLomba }));
+        }
+    }, [queryLomba]);
 
     const toTitleCase = (str: string) => {
         return str.replace(
@@ -35,12 +86,12 @@ export default function DaftarPage() {
     };
 
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-        let val = e.target.value.replace(/\D/g, ''); // hanya angka
+        let val = e.target.value.replace(/\D/g, '');
         if (val.startsWith('0')) {
-            val = val.substring(1); // hapus 0 di depan
+            val = val.substring(1);
         }
         if (val.startsWith('62')) {
-            val = val.substring(2); // hapus 62
+            val = val.substring(2);
         }
         setFormData({ ...formData, [field]: val });
     };
@@ -70,11 +121,31 @@ export default function DaftarPage() {
         }
     };
 
+    // Validasi apakah cabang lomba yang dipilih penuh
+    const selectedLombaConfig = CABANG_LOMBA_LIST.find(c => c.dbValue === formData.lomba);
+    const terisiCurrent = selectedLombaConfig ? (lombaCounts[selectedLombaConfig.dbValue] || 0) : 0;
+    const kuotaCurrent = selectedLombaConfig ? selectedLombaConfig.quota : 60;
+    const sisaCurrent = Math.max(0, kuotaCurrent - terisiCurrent);
+    const isSelectedLombaFull = Boolean(formData.lomba && sisaCurrent === 0);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (fileError) return;
         if (!formData.tanggalLahir) {
-            alert('Silakan isi tanggal lahir');
+            alert('Silakan isi tanggal lahir peserta');
+            return;
+        }
+
+        if (!formData.lomba) {
+            alert('Silakan pilih cabang lomba');
+            return;
+        }
+
+        // Cek kuota sebelum submit
+        const maxQuota = KUOTA_PER_CABANG[formData.lomba] || 60;
+        const currentFilled = lombaCounts[formData.lomba] || 0;
+        if (currentFilled >= maxQuota) {
+            alert(`Mohon maaf, kuota untuk cabang "${formData.lomba}" sudah PENUH (${maxQuota}/${maxQuota} peserta). Silakan pilih cabang lomba lain yang masih tersedia.`);
             return;
         }
         
@@ -82,7 +153,6 @@ export default function DaftarPage() {
         
         try {
             // Cek Duplikat Peserta (1 Peserta 1 Lomba)
-            // Memeriksa kombinasi Nama, Tanggal Lahir, dan Asal Sekolah
             const { data: existingData, error: checkError } = await supabase
                 .from('pendaftar')
                 .select('id, cabang_lomba')
@@ -96,6 +166,20 @@ export default function DaftarPage() {
             
             if (existingData && existingData.length > 0) {
                 alert(`Pendaftaran Ditolak: Peserta bernama "${formData.namaAnak}" sudah terdaftar di cabang lomba "${existingData[0].cabang_lomba}". (Satu anak hanya boleh mengikuti maksimal 1 cabang lomba).`);
+                setIsSubmitting(false);
+                return;
+            }
+
+            // Verifikasi Kuota Langsung ke Database untuk Menghindari Race Condition
+            const { count: countLomba, error: countErr } = await supabase
+                .from('pendaftar')
+                .select('*', { count: 'exact', head: true })
+                .eq('cabang_lomba', formData.lomba);
+            
+            if (countErr) console.error("Gagal menghitung urutan peserta", countErr);
+
+            if ((countLomba || 0) >= maxQuota) {
+                alert(`Mohon maaf, kuota pendaftaran untuk cabang "${formData.lomba}" baru saja PENUH (Maksimal ${maxQuota} peserta). Silakan pilih cabang lomba lain.`);
                 setIsSubmitting(false);
                 return;
             }
@@ -118,22 +202,8 @@ export default function DaftarPage() {
                 fotoUrl = publicUrl;
             }
 
-            // Generate No Peserta berdasarkan cabang lomba
-            let prefix = 'JEA';
-            if (formData.lomba === 'MHQ') prefix = 'MHQ';
-            else if (formData.lomba === 'Karya Kolase') prefix = 'KLS';
-            else if (formData.lomba === 'Mewarnai') prefix = 'WAR';
-            else if (formData.lomba === 'Menyanyi Solo') prefix = 'NYS';
-            else if (formData.lomba === 'Fashion Show') prefix = 'FSH';
-            else if (formData.lomba === 'Adzan') prefix = 'ADZ';
-            else if (formData.lomba === 'Tendangan Penalti') prefix = 'PNL';
-
-            const { count: countLomba, error: countErr } = await supabase
-                .from('pendaftar')
-                .select('*', { count: 'exact', head: true })
-                .eq('cabang_lomba', formData.lomba);
-            
-            if (countErr) console.error("Gagal menghitung urutan peserta", countErr);
+            // Generate No Peserta berdasarkan prefix cabang lomba
+            const prefix = PREFIX_PER_CABANG[formData.lomba] || 'JEA';
             const nextNum = (countLomba || 0) + 1;
             const noPesertaBaru = `${prefix}-2026-${nextNum.toString().padStart(3, '0')}`;
 
@@ -162,7 +232,7 @@ export default function DaftarPage() {
             if (insertData && insertData.length > 0) {
                 setRegisteredData(insertData[0]);
             } else {
-                alert("Pendaftaran berhasil! Silakan periksa WhatsApp Anda untuk info pembayaran.");
+                alert("Pendaftaran berhasil! Silakan simpan nomor peserta Anda.");
             }
             
             // Reset form
@@ -206,6 +276,27 @@ export default function DaftarPage() {
             alert('Gagal mengunduh PDF, silakan screenshot layar ini.');
         }
     };
+
+    // Options dropdown dengan status kuota real-time
+    const selectOptions = CABANG_LOMBA_LIST.map(item => {
+        const terisi = lombaCounts[item.dbValue] || 0;
+        const sisa = Math.max(0, item.quota - terisi);
+        const isFull = sisa === 0;
+
+        return {
+            value: item.dbValue,
+            label: item.title,
+            icon: item.faIcon,
+            color: `${item.classes.tagBg} ${item.classes.tagText}`,
+            badge: isFull ? 'KUOTA PENUH' : `Sisa ${sisa}`,
+            badgeColor: isFull 
+                ? 'bg-rose-50 text-rose-600 border-rose-200' 
+                : sisa <= 10 
+                    ? 'bg-amber-50 text-amber-600 border-amber-200' 
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200',
+            disabled: isFull
+        };
+    });
 
     return (
         <div className="bg-sky-50 min-h-screen font-sans">
@@ -299,104 +390,105 @@ export default function DaftarPage() {
                                                 <p className="font-mono font-bold text-slate-700 text-sm bg-slate-200/50 px-2.5 py-1 rounded-lg inline-block">{registeredData.no_peserta || registeredData.id.split('-')[0].toUpperCase()}</p>
                                             </div>
                                         </div>
-                                        
-                                        <div className="pt-1">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Asal Sekolah (TK/RA)</p>
-                                            <p className="font-bold text-slate-700 text-sm line-clamp-1">{registeredData.asal_sekolah}</p>
-                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                                </div>
                             </div>
 
-
-                            {/* Actions */}
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-lg mx-auto">
-                                <a 
-                                    href={`https://wa.me/6283820741280?text=Halo%20Admin%2C%20saya%20ingin%20konfirmasi%20pendaftaran%20ananda%20*${encodeURIComponent(registeredData.nama_anak)}*%20untuk%20lomba%20*${encodeURIComponent(registeredData.cabang_lomba)}*.%20ID%20Pendaftaran%3A%20${registeredData.no_peserta || registeredData.id.split('-')[0].toUpperCase()}`} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="w-full sm:w-auto flex-1 px-6 py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white rounded-2xl font-bold transition-all shadow-[0_8px_16px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2.5 hover:-translate-y-1 active:translate-y-0"
+                            {/* Tombol Aksi Download & Baru */}
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">
+                                <button
+                                    onClick={handleDownloadPDF}
+                                    className="w-full sm:flex-1 bg-gradient-to-r from-sky-500 to-sky-600 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg shadow-sky-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
                                 >
-                                    <i className="fa-brands fa-whatsapp text-2xl"></i> Konfirmasi Admin
-                                </a>
-                                
-                                <button 
-                                    onClick={handleDownloadPDF} 
-                                    className="w-full sm:w-auto flex-1 px-6 py-4 bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-400 hover:to-sky-500 text-white rounded-2xl font-bold transition-all shadow-[0_8px_16px_rgba(14,165,233,0.3)] flex items-center justify-center gap-2.5 hover:-translate-y-1 active:translate-y-0"
-                                >
-                                    <i className="fa-solid fa-file-pdf text-xl"></i> Unduh Tiket (PDF)
+                                    <i className="fa-solid fa-download"></i> Unduh PDF Tiket
                                 </button>
-                            </div>
-                            
-                            <div className="pt-6">
-                                <button onClick={() => window.location.href = '/'} className="text-slate-400 hover:text-slate-700 font-bold transition-colors underline decoration-slate-200 hover:decoration-slate-400 underline-offset-4">
-                                    <i className="fa-solid fa-arrow-left mr-1"></i> Kembali ke Beranda
+                                <button
+                                    onClick={() => setRegisteredData(null)}
+                                    className="w-full sm:flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                >
+                                    <i className="fa-solid fa-user-plus"></i> Daftar Peserta Lain
                                 </button>
                             </div>
                         </div>
                     ) : (
-                        <form className="space-y-8" onSubmit={handleSubmit}>
+                    <form onSubmit={handleSubmit} className="space-y-8">
                         
-                        {/* Data Anak */}
+                        {/* Data Diri Peserta */}
                         <div>
                             <h2 className="text-xl font-bold font-bubbly text-sky-600 border-b-2 border-sky-100 pb-2 mb-6 flex items-center gap-2">
-                                <i className="fa-solid fa-child-reaching text-amber-400"></i> Data Penjelajah Cilik
+                                <i className="fa-solid fa-id-card text-amber-400"></i> Identitas Calon Petualang
                             </h2>
                             <div className="space-y-5">
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-2">Nama Lengkap Peserta *</label>
-                                    <input type="text" value={formData.namaAnak} onChange={(e) => handleTextChange(e, 'namaAnak', true)} className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 bg-slate-50 focus:bg-white focus:border-sky-400 focus:ring-4 focus:ring-sky-400/20 transition-all outline-none font-medium text-slate-700 placeholder:text-slate-400" placeholder="Contoh: Muhammad Ali" required />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-2">Jenis Kelamin *</label>
-                                    <CustomSelect 
-                                        name="jenisKelamin" 
-                                        value={formData.jenisKelamin}
-                                        onChange={(val) => setFormData({...formData, jenisKelamin: val})}
-                                        options={[
-                                            { value: "Laki-laki", label: "Laki-laki", icon: "fa-solid fa-mars", color: "bg-sky-100 text-sky-600" },
-                                            { value: "Perempuan", label: "Perempuan", icon: "fa-solid fa-venus", color: "bg-rose-100 text-rose-600" },
-                                        ]} 
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">Nama Lengkap Anak *</label>
+                                    <input 
+                                        type="text" 
+                                        value={formData.namaAnak} 
+                                        onChange={(e) => handleTextChange(e, 'namaAnak', true)} 
+                                        className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 bg-slate-50 focus:bg-white focus:border-sky-400 focus:ring-4 focus:ring-sky-400/20 transition-all outline-none font-medium text-slate-700 placeholder:text-slate-400" 
+                                        placeholder="Misal: Ahmad Zaky" 
                                         required 
                                     />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Jenis Kelamin *</label>
+                                        <CustomSelect 
+                                            name="jenisKelamin" 
+                                            value={formData.jenisKelamin}
+                                            onChange={(val) => setFormData({...formData, jenisKelamin: val})}
+                                            options={[
+                                                { value: "Laki-laki", label: "Laki-laki", icon: "fa-solid fa-mars", color: "bg-blue-100 text-blue-600" },
+                                                { value: "Perempuan", label: "Perempuan", icon: "fa-solid fa-venus", color: "bg-pink-100 text-pink-600" }
+                                            ]} 
+                                            required 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Asal Sekolah / TK *</label>
+                                        <input 
+                                            type="text" 
+                                            value={formData.asalSekolah} 
+                                            onChange={(e) => handleTextChange(e, 'asalSekolah', true)} 
+                                            className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 bg-slate-50 focus:bg-white focus:border-sky-400 focus:ring-4 focus:ring-sky-400/20 transition-all outline-none font-medium text-slate-700 placeholder:text-slate-400" 
+                                            placeholder="Nama TK / PAUD" 
+                                            required 
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-2">Tempat Lahir *</label>
-                                        <input type="text" value={formData.tempatLahir} onChange={(e) => handleTextChange(e, 'tempatLahir', true)} className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 bg-slate-50 focus:bg-white focus:border-sky-400 focus:ring-4 focus:ring-sky-400/20 transition-all outline-none font-medium text-slate-700 placeholder:text-slate-400" placeholder="Contoh: Purwakarta" required />
+                                        <input 
+                                            type="text" 
+                                            value={formData.tempatLahir} 
+                                            onChange={(e) => handleTextChange(e, 'tempatLahir', true)} 
+                                            className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 bg-slate-50 focus:bg-white focus:border-sky-400 focus:ring-4 focus:ring-sky-400/20 transition-all outline-none font-medium text-slate-700 placeholder:text-slate-400" 
+                                            placeholder="Kota kelahiran" 
+                                            required 
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-2">Tanggal Lahir *</label>
-                                        <CustomDatePicker name="tanggal_lahir" value={formData.tanggalLahir} onChange={(date) => setFormData({...formData, tanggalLahir: date})} required />
+                                        <CustomDatePicker 
+                                            value={formData.tanggalLahir} 
+                                            onChange={(date) => setFormData({ ...formData, tanggalLahir: date })} 
+                                            required 
+                                        />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-2">Asal Sekolah (TK/RA) *</label>
-                                    <input type="text" value={formData.asalSekolah} onChange={(e) => handleTextChange(e, 'asalSekolah', true)} className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 bg-slate-50 focus:bg-white focus:border-sky-400 focus:ring-4 focus:ring-sky-400/20 transition-all outline-none font-medium text-slate-700 placeholder:text-slate-400" placeholder="Contoh: TK Al-Muhajirin" required />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-2">Apakah berminat menyekolahkan anak di SD Plus 3 Al-Muhajirin? *</label>
-                                    <CustomSelect 
-                                        name="minatSekolah" 
-                                        value={formData.minatSekolah}
-                                        onChange={(val) => setFormData({...formData, minatSekolah: val})}
-                                        options={[
-                                            { value: "Ya, Berminat", label: "Berminat", icon: "fa-solid fa-check", color: "bg-emerald-100 text-emerald-600" },
-                                            { value: "Masih dalam pertimbangan", label: "Masih dalam pertimbangan", icon: "fa-solid fa-scale-balanced", color: "bg-amber-100 text-amber-600" }
-                                        ]} 
-                                        required 
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">Unggah Foto Peserta (Opsional)</label>
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        onChange={handleFileChange} 
+                                        accept="image/png, image/jpeg, image/jpg" 
+                                        className="w-full rounded-2xl border-2 border-dashed border-slate-300 p-3 bg-slate-50 focus:bg-white focus:border-sky-400 transition-all outline-none font-medium text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-sky-100 file:text-sky-700 hover:file:bg-sky-200 cursor-pointer" 
                                     />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-2">Pas Foto Anak *</label>
-                                    <div className="relative">
-                                        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/jpeg, image/png, image/jpg" className="w-full rounded-2xl border-2 border-slate-200 px-4 py-2 bg-slate-50 focus:bg-white focus:border-sky-400 focus:ring-4 focus:ring-sky-400/20 transition-all outline-none font-medium text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-sky-100 file:text-sky-700 hover:file:bg-sky-200 cursor-pointer" required />
-                                    </div>
                                     {fileError ? (
-                                        <p className="mt-2 text-xs text-red-500 font-semibold flex items-center gap-1.5">
-                                            <i className="fa-solid fa-circle-exclamation"></i> {fileError}
-                                        </p>
+                                        <p className="mt-2 text-xs text-rose-500 font-semibold">{fileError}</p>
                                     ) : (
                                         <p className="mt-2 text-xs text-slate-500 font-semibold flex items-center gap-1.5">
                                             <i className="fa-solid fa-circle-info text-sky-500"></i> Format: JPG/PNG, Maks. 2MB
@@ -414,21 +506,46 @@ export default function DaftarPage() {
                             <div className="space-y-5">
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-2">Nama Orang Tua / Wali *</label>
-                                    <input type="text" value={formData.namaWali} onChange={(e) => handleTextChange(e, 'namaWali', true)} className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 bg-slate-50 focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 transition-all outline-none font-medium text-slate-700 placeholder:text-slate-400" placeholder="Nama ayah/ibu" required />
+                                    <input 
+                                        type="text" 
+                                        value={formData.namaWali} 
+                                        onChange={(e) => handleTextChange(e, 'namaWali', true)} 
+                                        className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 bg-slate-50 focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 transition-all outline-none font-medium text-slate-700 placeholder:text-slate-400" 
+                                        placeholder="Nama ayah/ibu" 
+                                        required 
+                                    />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-2">No. WhatsApp Orang Tua *</label>
                                         <div className="relative">
                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">+62</span>
-                                            <input type="tel" value={formData.waWali} onChange={(e) => handlePhoneChange(e, 'waWali')} className="w-full rounded-2xl border-2 border-slate-200 pl-12 pr-4 py-3 bg-slate-50 focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 transition-all outline-none font-medium text-slate-700 placeholder:text-slate-400" placeholder="8123456..." required minLength={9} maxLength={13} />
+                                            <input 
+                                                type="tel" 
+                                                value={formData.waWali} 
+                                                onChange={(e) => handlePhoneChange(e, 'waWali')} 
+                                                className="w-full rounded-2xl border-2 border-slate-200 pl-12 pr-4 py-3 bg-slate-50 focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 transition-all outline-none font-medium text-slate-700 placeholder:text-slate-400" 
+                                                placeholder="8123456..." 
+                                                required 
+                                                minLength={9} 
+                                                maxLength={13} 
+                                            />
                                         </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-2">No. WhatsApp Guru/Pembimbing *</label>
                                         <div className="relative">
                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">+62</span>
-                                            <input type="tel" value={formData.waGuru} onChange={(e) => handlePhoneChange(e, 'waGuru')} className="w-full rounded-2xl border-2 border-slate-200 pl-12 pr-4 py-3 bg-slate-50 focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 transition-all outline-none font-medium text-slate-700 placeholder:text-slate-400" placeholder="8123456..." required minLength={9} maxLength={13} />
+                                            <input 
+                                                type="tel" 
+                                                value={formData.waGuru} 
+                                                onChange={(e) => handlePhoneChange(e, 'waGuru')} 
+                                                className="w-full rounded-2xl border-2 border-slate-200 pl-12 pr-4 py-3 bg-slate-50 focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 transition-all outline-none font-medium text-slate-700 placeholder:text-slate-400" 
+                                                placeholder="8123456..." 
+                                                required 
+                                                minLength={9} 
+                                                maxLength={13} 
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -437,26 +554,78 @@ export default function DaftarPage() {
 
                         {/* Pilihan Lomba */}
                         <div>
-                            <h2 className="text-xl font-bold font-bubbly text-amber-600 border-b-2 border-amber-100 pb-2 mb-6 flex items-center gap-2">
-                                <i className="fa-solid fa-trophy text-amber-400"></i> Pilihan Ekspedisi Lomba
-                            </h2>
+                            <div className="flex items-center justify-between border-b-2 border-amber-100 pb-2 mb-6">
+                                <h2 className="text-xl font-bold font-bubbly text-amber-600 flex items-center gap-2">
+                                    <i className="fa-solid fa-trophy text-amber-400"></i> Pilihan Ekspedisi Lomba
+                                </h2>
+                                {!isLoadingCounts && (
+                                    <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                                        Kuota Realtime Tersinkron
+                                    </span>
+                                )}
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">Pilih Cabang Lomba *</label>
                                 <CustomSelect 
                                     name="lomba" 
                                     value={formData.lomba}
                                     onChange={(val) => setFormData({...formData, lomba: val})}
-                                    options={[
-                                        { value: "MHQ", label: "Lomba MHQ (Hafalan Al-Qur'an)", icon: "fa-solid fa-book-quran", color: "bg-emerald-100 text-emerald-600" },
-                                        { value: "Karya Kolase", label: "Lomba Karya Kolase", icon: "fa-solid fa-scissors", color: "bg-amber-100 text-amber-600" },
-                                        { value: "Mewarnai", label: "Lomba Mewarnai", icon: "fa-solid fa-palette", color: "bg-rose-100 text-rose-600" },
-                                        { value: "Menyanyi Solo", label: "Lomba Menyanyi Solo", icon: "fa-solid fa-microphone", color: "bg-sky-100 text-sky-600" },
-                                        { value: "Fashion Show", label: "Lomba Fashion Show", icon: "fa-solid fa-shirt", color: "bg-fuchsia-100 text-fuchsia-600" },
-                                        { value: "Adzan", label: "Lomba Adzan", icon: "fa-solid fa-volume-high", color: "bg-emerald-100 text-emerald-600" },
-                                        { value: "Tendangan Penalti", label: "Lomba Tendangan Penalti", icon: "fa-solid fa-futbol", color: "bg-indigo-100 text-indigo-600" }
-                                    ]} 
+                                    options={selectOptions} 
                                     required 
                                 />
+
+                                {/* Info Card Detail Kuota Cabang yang Dipilih */}
+                                {formData.lomba && selectedLombaConfig && (
+                                    <div className={`mt-3.5 p-4 rounded-2xl border transition-all ${
+                                        isSelectedLombaFull 
+                                            ? 'bg-rose-50/80 border-rose-200' 
+                                            : sisaCurrent <= 10 
+                                                ? 'bg-amber-50/70 border-amber-200' 
+                                                : 'bg-slate-50 border-slate-200'
+                                    }`}>
+                                        <div className="flex items-center justify-between gap-2 mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-lg">{selectedLombaConfig.icon}</span>
+                                                <span className="text-sm font-bold text-slate-800">{selectedLombaConfig.title}</span>
+                                                <span className="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-full">{selectedLombaConfig.target}</span>
+                                            </div>
+                                            <span className={`text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${
+                                                isSelectedLombaFull 
+                                                    ? 'bg-rose-100 text-rose-700 border-rose-300' 
+                                                    : sisaCurrent <= 10 
+                                                        ? 'bg-amber-100 text-amber-800 border-amber-300' 
+                                                        : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                            }`}>
+                                                {isSelectedLombaFull ? 'KUOTA PENUH' : `Sisa ${sisaCurrent} Slot`}
+                                            </span>
+                                        </div>
+
+                                        <div className="w-full bg-slate-200/80 rounded-full h-2.5 mb-2 overflow-hidden shadow-inner">
+                                            <div 
+                                                className={`h-full rounded-full transition-all duration-500 ${
+                                                    isSelectedLombaFull ? 'bg-rose-500' : sisaCurrent <= 10 ? 'bg-amber-500' : selectedLombaConfig.classes.progressBar
+                                                }`}
+                                                style={{ 
+                                                    width: `${kuotaCurrent > 0 ? Math.min(100, Math.round((terisiCurrent / kuotaCurrent) * 100)) : 0}%`,
+                                                    backgroundColor: isSelectedLombaFull ? '#EF4444' : sisaCurrent <= 10 ? '#F59E0B' : selectedLombaConfig.progressHex
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                                            <span>Terisi: <strong className="text-slate-800 font-bold">{terisiCurrent}</strong> dari {kuotaCurrent} Peserta</span>
+                                            <span className="font-bold text-emerald-600 bg-white px-2 py-0.5 rounded border border-slate-100">{selectedLombaConfig.price}</span>
+                                        </div>
+
+                                        {isSelectedLombaFull && (
+                                            <p className="mt-2.5 text-xs text-rose-600 font-bold flex items-center gap-1.5 bg-white/80 p-2 rounded-xl border border-rose-200">
+                                                <i className="fa-solid fa-circle-exclamation text-rose-500"></i> Kuota lomba ini sudah penuh. Silakan pilih cabang lomba lain yang masih tersedia.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
                                 <p className="mt-2 text-xs text-amber-600 font-semibold flex items-center gap-1.5">
                                     <i className="fa-solid fa-circle-info"></i> Pastikan pilihan lomba sudah sesuai dengan minat anak.
                                 </p>
@@ -465,11 +634,24 @@ export default function DaftarPage() {
 
                         {/* Submit Button */}
                         <div className="pt-6">
-                            <button type="submit" disabled={isSubmitting} className={`w-full flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-extrabold text-lg transition-all ${isSubmitting ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 shadow-lg shadow-amber-500/30 hover:scale-[1.02] active:scale-[0.98]'}`}>
+                            <button 
+                                type="submit" 
+                                disabled={isSubmitting || isSelectedLombaFull} 
+                                className={`w-full flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-extrabold text-lg transition-all ${
+                                    isSubmitting || isSelectedLombaFull
+                                        ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed' 
+                                        : 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 shadow-lg shadow-amber-500/30 hover:scale-[1.02] active:scale-[0.98] cursor-pointer'
+                                }`}
+                            >
                                 {isSubmitting ? (
                                     <>
                                         <i className="fa-solid fa-circle-notch fa-spin"></i>
-                                        Memproses...
+                                        Memverifikasi & Mendaftar...
+                                    </>
+                                ) : isSelectedLombaFull ? (
+                                    <>
+                                        <i className="fa-solid fa-ban"></i>
+                                        Kuota Penuh — Pilih Cabang Lain
                                     </>
                                 ) : (
                                     <>
@@ -486,9 +668,24 @@ export default function DaftarPage() {
                 
                 {/* Footer Minimalis */}
                 <div className="text-center mt-10 text-slate-400 text-sm font-medium">
-                    &copy; 2026 JinGa Explorers Academy Festival
+                    &copy; 2026 JinGa Explorers Academy Festival • SD Plus 3 Al-Muhajirin
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function DaftarPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-sky-50 flex items-center justify-center">
+                <div className="text-center p-8 bg-white rounded-3xl shadow-sm border border-slate-100">
+                    <i className="fa-solid fa-circle-notch fa-spin text-4xl text-sky-500 mb-3"></i>
+                    <p className="font-bold text-slate-600 text-sm">Memuat Formulir Pendaftaran...</p>
+                </div>
+            </div>
+        }>
+            <DaftarFormContent />
+        </Suspense>
     );
 }

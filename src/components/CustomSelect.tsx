@@ -8,6 +8,9 @@ export interface Option {
   label: string;
   icon?: string;
   color?: string;
+  badge?: string;
+  badgeColor?: string;
+  disabled?: boolean;
 }
 
 interface CustomSelectProps {
@@ -78,6 +81,13 @@ export default function CustomSelect({
                 </div>
               )}
               <span className="truncate">{selectedOption.label}</span>
+              {selectedOption.badge && (
+                <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border shrink-0 ${
+                  selectedOption.badgeColor || (selectedOption.disabled ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200')
+                }`}>
+                  {selectedOption.badge}
+                </span>
+              )}
             </>
           ) : (
             <span className="text-slate-400 font-medium truncate">{placeholder}</span>
@@ -102,24 +112,46 @@ export default function CustomSelect({
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => handleSelect(option.value)}
-                  className={`w-full text-left flex items-center gap-2 sm:gap-3 transition-colors mb-1 last:mb-0
-                    ${size === 'sm' ? 'px-3 py-2 rounded-lg text-sm' : 'px-3 py-3 rounded-xl'}
-                    ${value === option.value ? 'bg-amber-50 font-bold text-amber-700' : 'hover:bg-slate-50 text-slate-700 font-medium'}
+                  disabled={option.disabled}
+                  onClick={() => {
+                    if (!option.disabled) {
+                      handleSelect(option.value);
+                    }
+                  }}
+                  className={`w-full text-left flex items-center justify-between gap-2 transition-all mb-1 last:mb-0
+                    ${size === 'sm' ? 'px-3 py-2 rounded-lg text-sm' : 'px-3.5 py-3 rounded-xl'}
+                    ${option.disabled 
+                      ? 'opacity-50 cursor-not-allowed bg-slate-50 text-slate-400 select-none' 
+                      : value === option.value 
+                        ? 'bg-amber-50 font-bold text-amber-700 shadow-sm' 
+                        : 'hover:bg-slate-50 text-slate-700 font-medium'
+                    }
                   `}
                 >
-                   {option.icon && (
-                    <div className={`shrink-0 rounded-full flex items-center justify-center transition-colors ${option.color || 'bg-slate-100 text-slate-500'}
-                      ${size === 'sm' ? 'w-6 h-6 text-[10px]' : 'w-8 h-8 text-sm'}
-                      ${value === option.value ? 'bg-amber-200 text-amber-700' : ''}
-                    `}>
-                      <i className={option.icon}></i>
-                    </div>
-                  )}
-                  <span className="truncate">{option.label}</span>
-                  {value === option.value && (
-                    <i className="fa-solid fa-check text-amber-500 ml-auto text-lg shrink-0"></i>
-                  )}
+                  <div className="flex items-center gap-2 sm:gap-3 truncate min-w-0">
+                    {option.icon && (
+                      <div className={`shrink-0 rounded-full flex items-center justify-center transition-colors ${option.color || 'bg-slate-100 text-slate-500'}
+                        ${size === 'sm' ? 'w-6 h-6 text-[10px]' : 'w-8 h-8 text-sm'}
+                        ${value === option.value ? 'bg-amber-200 text-amber-700' : ''}
+                      `}>
+                        <i className={option.icon}></i>
+                      </div>
+                    )}
+                    <span className="truncate">{option.label}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 ml-auto">
+                    {option.badge && (
+                      <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
+                        option.badgeColor || (option.disabled ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200')
+                      }`}>
+                        {option.badge}
+                      </span>
+                    )}
+                    {value === option.value && !option.disabled && (
+                      <i className="fa-solid fa-check text-amber-500 text-base"></i>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>
