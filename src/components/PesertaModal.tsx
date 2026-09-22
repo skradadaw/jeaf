@@ -41,6 +41,22 @@ const parseDateString = (str?: string | null): Date | null => {
 
 const CABANG_ICONS = CABANG_CONFIG;
 
+const formatTanggalDaftar = (dateStr?: string | null) => {
+  if (!dateStr) return '-';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return '-';
+  }
+};
+
 export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess }: PesertaModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<any>(null);
@@ -366,6 +382,12 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Cabang</p>
                         </div>
                         <p className="font-bold text-slate-700 text-sm truncate">{peserta.cabang_lomba}</p>
+                        {peserta.created_at && (
+                          <div className="inline-flex items-center gap-1.5 text-[10px] text-slate-500 font-medium bg-slate-50 border border-slate-200/70 px-2 py-0.5 rounded-md mt-1.5">
+                            <i className="fa-regular fa-calendar-days text-[9px] text-slate-400"></i>
+                            <span>{formatTanggalDaftar(peserta.created_at)}</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}

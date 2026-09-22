@@ -64,6 +64,16 @@ export default function DashboardPage() {
   const hadirCount = registrations.filter(r => r.status_kehadiran === 'Hadir').length;
   const persentaseHadir = totalPendaftar > 0 ? ((hadirCount / totalPendaftar) * 100).toFixed(1) : "0";
   
+  const CABANG_ICONS: Record<string, { icon: string; bg: string; text: string; bar: string }> = {
+    'Adzan': { icon: 'fa-solid fa-volume-high', bg: 'bg-indigo-50 text-indigo-600', text: 'text-indigo-700', bar: 'bg-indigo-500' },
+    'Fashion Show': { icon: 'fa-solid fa-vest-patches', bg: 'bg-rose-50 text-rose-600', text: 'text-rose-700', bar: 'bg-rose-500' },
+    'MHQ': { icon: 'fa-solid fa-book-quran', bg: 'bg-emerald-50 text-emerald-600', text: 'text-emerald-700', bar: 'bg-emerald-500' },
+    'Karya Kolase': { icon: 'fa-solid fa-scissors', bg: 'bg-orange-50 text-orange-600', text: 'text-orange-700', bar: 'bg-orange-500' },
+    'Mewarnai': { icon: 'fa-solid fa-palette', bg: 'bg-amber-50 text-amber-600', text: 'text-amber-700', bar: 'bg-amber-500' },
+    'Tendangan Penalti': { icon: 'fa-solid fa-futbol', bg: 'bg-sky-50 text-sky-600', text: 'text-sky-700', bar: 'bg-sky-500' },
+    'Menyanyi Solo': { icon: 'fa-solid fa-microphone', bg: 'bg-purple-50 text-purple-600', text: 'text-purple-700', bar: 'bg-purple-500' },
+  };
+
   const getCabangColor = (cabang: string) => {
     switch (cabang) {
       case 'Adzan': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
@@ -111,59 +121,84 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Kuota Section */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-            <h3 className="text-lg font-bold tracking-tight text-slate-900">Statistik Kuota Lomba</h3>
-            <div className="text-sm font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl flex items-center gap-2">
+        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl shadow-sm p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 sm:mb-6">
+            <h3 className="text-base sm:text-lg font-bold tracking-tight text-slate-900">Statistik Kuota Lomba</h3>
+            <div className="text-xs sm:text-sm font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-3.5 py-1.5 sm:py-2 rounded-xl flex items-center gap-2 self-start sm:self-auto">
               <i className="fa-solid fa-chart-pie text-sky-500"></i> Total: {totalPendaftar} Pendaftar
             </div>
           </div>
           
-          <div className="flex sm:grid sm:grid-cols-2 gap-4 overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar -mx-6 px-6 sm:mx-0 sm:px-0">
-            {cabangStats.map(stat => (
-              <div key={stat.cabang} className="min-w-[85%] sm:min-w-0 snap-center shrink-0 bg-white border border-slate-100 hover:border-sky-200 hover:shadow-md transition-all p-5 rounded-2xl group relative overflow-hidden flex flex-col justify-between">
-                <div>
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-bold text-slate-800 text-sm group-hover:text-sky-700 transition-colors leading-tight">{stat.cabang}</h4>
-                    <span className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full border ${
-                      stat.sisa === 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 
-                      stat.sisa <= 10 ? 'bg-amber-50 text-amber-600 border-amber-100' : 
-                      'bg-emerald-50 text-emerald-600 border-emerald-100'
-                    }`}>
-                      {stat.sisa === 0 ? 'KUOTA PENUH' : `SISA ${stat.sisa}`}
-                    </span>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            {cabangStats.map((stat, idx) => {
+              const isLastOdd = idx === cabangStats.length - 1 && cabangStats.length % 2 !== 0;
+              const cfg = CABANG_ICONS[stat.cabang] || { icon: 'fa-solid fa-trophy', bg: 'bg-slate-50 text-slate-500', text: 'text-slate-600', bar: 'bg-sky-500' };
+
+              return (
+                <div 
+                  key={stat.cabang} 
+                  className={`bg-white border border-slate-200/80 hover:border-sky-300 hover:shadow-md transition-all p-3.5 sm:p-5 rounded-2xl group relative overflow-hidden flex flex-col justify-between ${
+                    isLastOdd ? 'col-span-2' : ''
+                  }`}
+                >
+                  <div>
+                    <div className="flex justify-between items-start gap-1.5 mb-2 sm:mb-3">
+                      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 text-[10px] sm:text-xs ${cfg.bg}`}>
+                          <i className={cfg.icon}></i>
+                        </div>
+                        <h4 className="font-bold text-slate-800 text-xs sm:text-sm group-hover:text-sky-700 transition-colors leading-tight truncate" title={stat.cabang}>
+                          {stat.cabang}
+                        </h4>
+                      </div>
+                      <span className={`text-[9px] sm:text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border shrink-0 ${
+                        stat.sisa === 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 
+                        stat.sisa <= 10 ? 'bg-amber-50 text-amber-600 border-amber-100' : 
+                        'bg-emerald-50 text-emerald-600 border-emerald-100'
+                      }`}>
+                        {stat.sisa === 0 ? 'Penuh' : `Sisa ${stat.sisa}`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline justify-between mb-2.5 sm:mb-3">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xl sm:text-2xl font-extrabold text-slate-800 tracking-tight">{stat.terisi}</span>
+                        <span className="text-xs sm:text-sm font-semibold text-slate-400">/ {stat.kuota}</span>
+                      </div>
+                      <span className="text-[10px] sm:text-xs font-bold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200/60">
+                        {stat.persentase}%
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-end mb-4">
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-3xl font-extrabold text-slate-700">{stat.terisi}</span>
-                      <span className="text-xs font-bold text-slate-400">/ {stat.kuota}</span>
+                  
+                  <div>
+                    <div className="w-full bg-slate-100 rounded-full h-2 sm:h-2.5 mb-2 overflow-hidden relative shadow-inner">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(100, Number(stat.persentase))}%` }}
+                        transition={{ duration: 0.8, type: "spring" }}
+                        className={`absolute left-0 top-0 h-full rounded-full ${
+                          stat.sisa === 0 ? 'bg-rose-500' : 
+                          stat.sisa <= 10 ? 'bg-amber-500' : 
+                          cfg.bar
+                        }`} 
+                      />
+                    </div>
+                    
+                    <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-medium">
+                      <span className="text-slate-400">Terisi {stat.terisi}</span>
+                      <span className={`font-semibold ${
+                        stat.sisa === 0 ? 'text-rose-500' : 
+                        stat.sisa <= 10 ? 'text-amber-500' : 
+                        'text-emerald-600'
+                      }`}>
+                        {stat.sisa === 0 ? 'Kapasitas Penuh' : 'Tersedia'}
+                      </span>
                     </div>
                   </div>
                 </div>
-                
-                <div>
-                  <div className="w-full bg-slate-100 rounded-full h-3 mb-2.5 overflow-hidden relative shadow-inner">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, Number(stat.persentase))}%` }}
-                      transition={{ duration: 1, type: "spring" }}
-                      className={`absolute left-0 top-0 h-full rounded-full ${
-                        stat.sisa === 0 ? 'bg-rose-500' : 
-                        stat.sisa <= 10 ? 'bg-amber-500' : 
-                        'bg-sky-500'
-                      }`} 
-                    />
-                  </div>
-                  
-                  <div className="flex justify-between text-[11px] font-bold">
-                    <span className="text-slate-400">Terisi {stat.persentase}%</span>
-                    <span className={stat.sisa === 0 ? 'text-rose-500' : stat.sisa <= 10 ? 'text-amber-500' : 'text-emerald-500'}>
-                      {stat.sisa === 0 ? 'Kapasitas Maksimal' : 'Masih Tersedia'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

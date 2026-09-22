@@ -27,55 +27,62 @@ export default function DataPesertaPage() {
     'Semua', 'Adzan', 'Fashion Show', 'MHQ', 'Karya Kolase', 'Mewarnai', 'Tendangan Penalti', 'Menyanyi Solo'
   ];
 
-  const CABANG_BADGE_CONFIG: Record<string, { bg: string; text: string; border: string; icon: string; iconColor: string }> = {
+  const CABANG_BADGE_CONFIG: Record<string, { bg: string; text: string; border: string; icon: string; iconColor: string; iconBoxBg: string }> = {
     'Adzan': {
       bg: 'bg-indigo-50/90 hover:bg-indigo-100/80',
       text: 'text-indigo-700',
       border: 'border-indigo-200/80',
       icon: 'fa-solid fa-volume-high',
-      iconColor: 'text-indigo-600',
+      iconColor: 'text-indigo-500',
+      iconBoxBg: 'bg-indigo-50 text-indigo-500',
     },
     'Fashion Show': {
       bg: 'bg-rose-50/90 hover:bg-rose-100/80',
       text: 'text-rose-700',
       border: 'border-rose-200/80',
       icon: 'fa-solid fa-vest-patches',
-      iconColor: 'text-rose-600',
+      iconColor: 'text-rose-500',
+      iconBoxBg: 'bg-rose-50 text-rose-500',
     },
     'MHQ': {
       bg: 'bg-emerald-50/90 hover:bg-emerald-100/80',
       text: 'text-emerald-800',
       border: 'border-emerald-200/80',
       icon: 'fa-solid fa-book-quran',
-      iconColor: 'text-emerald-600',
+      iconColor: 'text-emerald-500',
+      iconBoxBg: 'bg-emerald-50 text-emerald-500',
     },
     'Karya Kolase': {
       bg: 'bg-orange-50/90 hover:bg-orange-100/80',
       text: 'text-orange-800',
       border: 'border-orange-200/80',
       icon: 'fa-solid fa-scissors',
-      iconColor: 'text-orange-600',
+      iconColor: 'text-orange-500',
+      iconBoxBg: 'bg-orange-50 text-orange-500',
     },
     'Mewarnai': {
       bg: 'bg-amber-50/90 hover:bg-amber-100/80',
       text: 'text-amber-800',
       border: 'border-amber-200/80',
       icon: 'fa-solid fa-palette',
-      iconColor: 'text-amber-600',
+      iconColor: 'text-amber-500',
+      iconBoxBg: 'bg-amber-50 text-amber-500',
     },
     'Tendangan Penalti': {
       bg: 'bg-sky-50/90 hover:bg-sky-100/80',
       text: 'text-sky-800',
       border: 'border-sky-200/80',
       icon: 'fa-solid fa-futbol',
-      iconColor: 'text-sky-600',
+      iconColor: 'text-sky-500',
+      iconBoxBg: 'bg-sky-50 text-sky-500',
     },
     'Menyanyi Solo': {
       bg: 'bg-purple-50/90 hover:bg-purple-100/80',
       text: 'text-purple-700',
       border: 'border-purple-200/80',
       icon: 'fa-solid fa-microphone',
-      iconColor: 'text-purple-600',
+      iconColor: 'text-purple-500',
+      iconBoxBg: 'bg-purple-50 text-purple-500',
     },
   };
 
@@ -85,6 +92,38 @@ export default function DataPesertaPage() {
     if (clean.startsWith('0')) clean = clean.substring(1);
     if (clean.startsWith('62')) clean = clean.substring(2);
     return `https://wa.me/62${clean}`;
+  };
+
+  const formatTanggalDaftar = (dateStr?: string | null) => {
+    if (!dateStr) return '-';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '-';
+      return d.toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return '-';
+    }
+  };
+
+  const formatWaktuTooltip = (dateStr?: string | null) => {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '';
+      return `${d.toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })} pukul ${d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+    } catch {
+      return '';
+    }
   };
 
   const fetchRegistrations = async () => {
@@ -349,17 +388,31 @@ export default function DataPesertaPage() {
                     <td className="px-6 py-4">
                       {(() => {
                         const config = CABANG_BADGE_CONFIG[reg.cabang_lomba] || {
-                          bg: 'bg-slate-50 hover:bg-slate-100',
+                          bg: 'bg-slate-50',
                           text: 'text-slate-700',
                           border: 'border-slate-200',
                           icon: 'fa-solid fa-trophy',
-                          iconColor: 'text-slate-500'
+                          iconColor: 'text-slate-500',
+                          iconBoxBg: 'bg-slate-50 text-slate-500'
                         };
                         return (
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border shadow-2xs transition-all ${config.bg} ${config.text} ${config.border}`}>
-                            <i className={`${config.icon} ${config.iconColor || ''} text-[11px] shrink-0`}></i>
-                            <span className="truncate">{reg.cabang_lomba}</span>
-                          </span>
+                          <div className="flex items-start gap-2">
+                            <div className={`w-6 h-6 rounded flex items-center justify-center shrink-0 mt-0.5 ${config.iconBoxBg}`}>
+                              <i className={`${config.icon} text-[10px]`}></i>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-slate-700 truncate max-w-[160px]">{reg.cabang_lomba}</p>
+                              {reg.created_at && (
+                                <span 
+                                  className="text-[10px] font-medium px-2 py-0.5 rounded-full inline-flex items-center gap-1 mt-1 border border-slate-200/80 bg-slate-50 text-slate-500 shadow-2xs"
+                                  title={`Waktu pendaftaran: ${formatWaktuTooltip(reg.created_at)}`}
+                                >
+                                  <i className="fa-regular fa-calendar-days text-[9px] text-slate-400"></i>
+                                  <span>{formatTanggalDaftar(reg.created_at)}</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         );
                       })()}
                     </td>
