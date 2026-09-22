@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { toast } from 'react-hot-toast';
+import { CABANG_CONFIG } from '@/lib/constants';
 
 export default function TiketPesertaPage() {
   const params = useParams();
@@ -67,13 +68,24 @@ export default function TiketPesertaPage() {
         style: { margin: '0', transform: 'none' }
       });
 
+      // Tambahkan margin di sekeliling tiket agar bentuk card tidak terpotong
+      const marginX = 48; // Margin kiri dan kanan
+      const marginY = 56; // Margin atas dan bawah
+      const pdfWidth = width + (marginX * 2);
+      const pdfHeight = height + (marginY * 2);
+
       const pdf = new jsPDF({
-        orientation: width > height ? 'landscape' : 'portrait',
+        orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
         unit: 'px',
-        format: [width, height]
+        format: [pdfWidth, pdfHeight]
       });
 
-      pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+      // Background putih bersih untuk area margin
+      pdf.setFillColor(255, 255, 255);
+      pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
+
+      // Gambar kartu tiket di tengah dengan margin
+      pdf.addImage(imgData, 'PNG', marginX, marginY, width, height);
       const safeName = peserta?.nama_anak?.replace(/\s+/g, '_') || 'Peserta';
       pdf.save(`Tiket_JinGa_${safeName}.pdf`);
 
@@ -131,6 +143,16 @@ export default function TiketPesertaPage() {
   }
 
   const noPesertaDisplay = peserta.no_peserta || peserta.id.split('-')[0].toUpperCase();
+  const cabangCfg = CABANG_CONFIG[peserta.cabang_lomba] || {
+    icon: 'fa-solid fa-trophy',
+    emoji: '🏆',
+    color: 'bg-amber-100 text-amber-700',
+    bg: 'bg-amber-50/90',
+    text: 'text-amber-800',
+    border: 'border-amber-200/80',
+    iconColor: 'text-amber-600',
+    iconBg: 'bg-amber-50 text-amber-600',
+  };
 
   return (
     <div className="bg-sky-50 min-h-screen font-sans overflow-x-hidden">
@@ -210,24 +232,55 @@ export default function TiketPesertaPage() {
                     <QRCode value={peserta.id} size={150} level="H" />
                   </div>
 
-                  <div className="space-y-5 text-left bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Nama Penjelajah</p>
-                      <p className="font-extrabold text-slate-800 text-xl leading-none">{peserta.nama_anak}</p>
+                  <div className="space-y-4 sm:space-y-5 text-left bg-slate-50/90 p-4 sm:p-5 rounded-2xl border border-slate-200/70 shadow-xs">
+                    <div className="min-w-0">
+                      <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                        Nama Penjelajah
+                      </p>
+                      <p 
+                        className={`font-extrabold text-slate-800 break-words tracking-tight ${
+                          (peserta.nama_anak || '').length > 25
+                            ? 'text-base sm:text-lg leading-snug'
+                            : (peserta.nama_anak || '').length > 16
+                            ? 'text-lg sm:text-xl leading-snug'
+                            : 'text-xl sm:text-2xl leading-tight'
+                        }`}
+                      >
+                        {peserta.nama_anak}
+                      </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 pt-1">
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Kategori Lomba</p>
-                        <p className="font-bold text-amber-600 text-sm bg-amber-50 px-2.5 py-1 rounded-lg inline-block border border-amber-100">
-                          {peserta.cabang_lomba}
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3.5 pt-1">
+                      <div className="flex flex-col min-w-0">
+                        <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 truncate">
+                          Kategori Lomba
                         </p>
+                        <div className={`w-full min-h-[40px] sm:min-h-[44px] px-1.5 sm:px-2.5 py-1.5 rounded-xl ${cabangCfg.bg} border ${cabangCfg.border} shadow-xs flex items-center justify-center gap-1 sm:gap-1.5 text-center transition-colors`}>
+                          <i className={`${cabangCfg.icon} ${cabangCfg.iconColor} shrink-0 text-[10px] sm:text-xs`}></i>
+                          <span 
+                            className={`font-bold ${cabangCfg.text} leading-tight text-center whitespace-nowrap ${
+                              (peserta.cabang_lomba || '').length > 14
+                                ? 'text-[10px] sm:text-xs'
+                                : (peserta.cabang_lomba || '').length > 10
+                                ? 'text-[11px] sm:text-xs'
+                                : 'text-xs sm:text-sm'
+                            }`}
+                          >
+                            {peserta.cabang_lomba}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">ID Tiket</p>
-                        <p className="font-mono font-bold text-slate-700 text-sm bg-slate-200/50 px-2.5 py-1 rounded-lg inline-block">
-                          {noPesertaDisplay}
+
+                      <div className="flex flex-col min-w-0">
+                        <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 truncate">
+                          ID Tiket
                         </p>
+                        <div className="w-full min-h-[40px] sm:min-h-[44px] px-1.5 sm:px-2.5 py-1.5 rounded-xl bg-slate-100/90 border border-slate-200/80 shadow-xs flex items-center justify-center gap-1 sm:gap-1.5 text-center">
+                          <i className="fa-solid fa-ticket text-slate-400 shrink-0 text-[10px] sm:text-xs"></i>
+                          <span className="font-mono font-bold text-slate-800 text-[11px] sm:text-xs tracking-tight whitespace-nowrap leading-tight">
+                            {noPesertaDisplay}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>

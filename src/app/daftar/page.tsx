@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase';
 import QRCode from 'react-qr-code';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
-import { CABANG_LOMBA_LIST, KUOTA_PER_CABANG, PREFIX_PER_CABANG } from '@/lib/constants';
+import { CABANG_LOMBA_LIST, KUOTA_PER_CABANG, PREFIX_PER_CABANG, CABANG_CONFIG } from '@/lib/constants';
 
 function DaftarFormContent() {
     const searchParams = useSearchParams();
@@ -124,7 +124,7 @@ function DaftarFormContent() {
     // Validasi apakah cabang lomba yang dipilih penuh
     const selectedLombaConfig = CABANG_LOMBA_LIST.find(c => c.dbValue === formData.lomba);
     const terisiCurrent = selectedLombaConfig ? (lombaCounts[selectedLombaConfig.dbValue] || 0) : 0;
-    const kuotaCurrent = selectedLombaConfig ? selectedLombaConfig.quota : 60;
+    const kuotaCurrent = selectedLombaConfig ? selectedLombaConfig.quota : 0;
     const sisaCurrent = Math.max(0, kuotaCurrent - terisiCurrent);
     const isSelectedLombaFull = Boolean(formData.lomba && sisaCurrent === 0);
 
@@ -188,7 +188,7 @@ function DaftarFormContent() {
         }
 
         // Cek kuota sebelum submit
-        const maxQuota = KUOTA_PER_CABANG[formData.lomba] || 60;
+        const maxQuota = KUOTA_PER_CABANG[formData.lomba] ?? (selectedLombaConfig?.quota ?? 0);
         const currentFilled = lombaCounts[formData.lomba] || 0;
         if (currentFilled >= maxQuota) {
             alert(`Mohon maaf, kuota untuk cabang "${formData.lomba}" sudah PENUH (${maxQuota}/${maxQuota} peserta). Silakan pilih cabang lomba lain yang masih tersedia.`);
@@ -315,12 +315,24 @@ function DaftarFormContent() {
                 style: { margin: '0', transform: 'none' }
             });
 
+            // Tambahkan margin di sekeliling tiket agar bentuk card tidak terpotong
+            const marginX = 48; // Margin kiri dan kanan
+            const marginY = 56; // Margin atas dan bawah
+            const pdfWidth = width + (marginX * 2);
+            const pdfHeight = height + (marginY * 2);
+
             const pdf = new jsPDF({
-                orientation: width > height ? 'landscape' : 'portrait',
+                orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
                 unit: 'px',
-                format: [width, height]
+                format: [pdfWidth, pdfHeight]
             });
-            pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+
+            // Background putih bersih untuk area margin
+            pdf.setFillColor(255, 255, 255);
+            pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
+
+            // Gambar kartu tiket di tengah dengan margin
+            pdf.addImage(imgData, 'PNG', marginX, marginY, width, height);
             pdf.save(`Tiket_JinGa_${registeredData?.nama_anak.replace(/\s+/g, '_') || 'Peserta'}.pdf`);
         } catch (error) {
             console.error('Error generating PDF', error);
@@ -412,20 +424,69 @@ function DaftarFormContent() {
                                             <QRCode value={registeredData.id} size={150} level="H" />
                                         </div>
 
-                                        <div className="space-y-5 text-left bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                                            <div>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Nama Penjelajah</p>
-                                                <p className="font-extrabold text-slate-800 text-xl leading-none">{registeredData.nama_anak}</p>
+                                        <div className="space-y-4 sm:space-y-5 text-left bg-slate-50/90 p-4 sm:p-5 rounded-2xl border border-slate-200/70 shadow-xs">
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                                    Nama Penjelajah
+                                                </p>
+                                                <p 
+                                                    className={`font-extrabold text-slate-800 break-words tracking-tight ${
+                                                        (registeredData.nama_anak || '').length > 25
+                                                            ? 'text-base sm:text-lg leading-snug'
+                                                            : (registeredData.nama_anak || '').length > 16
+                                                            ? 'text-lg sm:text-xl leading-snug'
+                                                            : 'text-xl sm:text-2xl leading-tight'
+                                                    }`}
+                                                >
+                                                    {registeredData.nama_anak}
+                                                </p>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-4 pt-1">
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Kategori Lomba</p>
-                                                    <p className="font-bold text-amber-600 text-sm bg-amber-50 px-2.5 py-1 rounded-lg inline-block border border-amber-100">{registeredData.cabang_lomba}</p>
+                                            <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 pt-1">
+                                                <div className="flex flex-col min-w-0">
+                                                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 truncate">
+                                                        Kategori Lomba
+                                                    </p>
+                                                    {(() => {
+                                                        const cfg = CABANG_CONFIG[registeredData.cabang_lomba] || {
+                                                            icon: 'fa-solid fa-trophy',
+                                                            emoji: '🏆',
+                                                            color: 'bg-amber-100 text-amber-700',
+                                                            bg: 'bg-amber-50/90',
+                                                            text: 'text-amber-800',
+                                                            border: 'border-amber-200/80',
+                                                            iconColor: 'text-amber-600',
+                                                            iconBg: 'bg-amber-50 text-amber-600',
+                                                        };
+                                                        return (
+                                                            <div className={`w-full min-h-[40px] sm:min-h-[44px] px-1.5 sm:px-2.5 py-1.5 rounded-xl ${cfg.bg} border ${cfg.border} shadow-xs flex items-center justify-center gap-1 sm:gap-1.5 text-center transition-colors`}>
+                                                                <i className={`${cfg.icon} ${cfg.iconColor} shrink-0 text-[10px] sm:text-xs`}></i>
+                                                                <span 
+                                                                    className={`font-bold ${cfg.text} leading-tight text-center whitespace-nowrap ${
+                                                                        (registeredData.cabang_lomba || '').length > 14
+                                                                            ? 'text-[10px] sm:text-xs'
+                                                                            : (registeredData.cabang_lomba || '').length > 10
+                                                                            ? 'text-[11px] sm:text-xs'
+                                                                            : 'text-xs sm:text-sm'
+                                                                    }`}
+                                                                >
+                                                                    {registeredData.cabang_lomba}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">ID Tiket</p>
-                                                    <p className="font-mono font-bold text-slate-700 text-sm bg-slate-200/50 px-2.5 py-1 rounded-lg inline-block">{registeredData.no_peserta || registeredData.id.split('-')[0].toUpperCase()}</p>
+
+                                                <div className="flex flex-col min-w-0">
+                                                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 truncate">
+                                                        ID Tiket
+                                                    </p>
+                                                    <div className="w-full min-h-[40px] sm:min-h-[44px] px-1.5 sm:px-2.5 py-1.5 rounded-xl bg-slate-100/90 border border-slate-200/80 shadow-xs flex items-center justify-center gap-1 sm:gap-1.5 text-center">
+                                                        <i className="fa-solid fa-ticket text-slate-400 shrink-0 text-[10px] sm:text-xs"></i>
+                                                        <span className="font-mono font-bold text-slate-800 text-[11px] sm:text-xs tracking-tight whitespace-nowrap leading-tight">
+                                                            {registeredData.no_peserta || registeredData.id.split('-')[0].toUpperCase()}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

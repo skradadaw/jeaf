@@ -75,35 +75,47 @@ ALTER TABLE public.pendaftar ADD COLUMN IF NOT EXISTS nilai_total INTEGER, ADD C
 ALTER TABLE public.pendaftar ADD COLUMN IF NOT EXISTS no_peserta TEXT;
 ALTER TABLE public.pendaftar ADD COLUMN IF NOT EXISTS tempat_lahir TEXT;
 
--- Trigger untuk membuat nomor peserta otomatis saat ada pendaftar baru
+-- Trigger untuk membuat nomor peserta otomatis saat ada pendaftar baru atau perpindahan cabang lomba
 CREATE OR REPLACE FUNCTION generate_no_peserta()
 RETURNS TRIGGER AS $$
 DECLARE
     prefix TEXT;
     seq INT;
 BEGIN
-    CASE NEW.cabang_lomba
-        WHEN 'Adzan' THEN prefix := 'ADZ';
-        WHEN 'Fashion Show' THEN prefix := 'FSH';
-        WHEN 'MHQ' THEN prefix := 'MHQ';
-        WHEN 'Karya Kolase' THEN prefix := 'KLS';
-        WHEN 'Mewarnai' THEN prefix := 'WAR';
-        WHEN 'Tendangan Penalti' THEN prefix := 'PNL';
-        WHEN 'Menyanyi Solo' THEN prefix := 'NYS';
-        ELSE prefix := 'JEA';
-    END CASE;
+    -- Hanya jalankan jika pendaftaran baru (INSERT) atau cabang lomba diubah (UPDATE)
+    IF (TG_OP = 'INSERT') OR (TG_OP = 'UPDATE' AND NEW.cabang_lomba IS DISTINCT FROM OLD.cabang_lomba) THEN
+        CASE NEW.cabang_lomba
+            WHEN 'Adzan' THEN prefix := 'ADZ';
+            WHEN 'Fashion Show' THEN prefix := 'FSH';
+            WHEN 'MHQ' THEN prefix := 'MHQ';
+            WHEN 'Karya Kolase' THEN prefix := 'KLS';
+            WHEN 'Mewarnai' THEN prefix := 'WAR';
+            WHEN 'Tendangan Penalti' THEN prefix := 'PNL';
+            WHEN 'Menyanyi Solo' THEN prefix := 'NYS';
+            ELSE prefix := 'JEA';
+        END CASE;
 
-    SELECT COUNT(*) INTO seq
-    FROM public.pendaftar
-    WHERE cabang_lomba = NEW.cabang_lomba;
+        SELECT COUNT(*) INTO seq
+        FROM public.pendaftar
+        WHERE cabang_lomba = NEW.cabang_lomba AND id <> COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid);
 
-    seq := seq + 1;
-    NEW.no_peserta := prefix || '-2026-' || LPAD(seq::text, 3, '0');
+        seq := seq + 1;
+        NEW.no_peserta := prefix || '-2026-' || LPAD(seq::text, 3, '0');
+        
+        -- Reset nilai lomba sebelumnya jika berpindah cabang lomba
+        IF TG_OP = 'UPDATE' THEN
+            NEW.nilai_total := NULL;
+            NEW.detail_nilai := NULL;
+            NEW.catatan_juri := NULL;
+        END IF;
+    END IF;
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS set_no_peserta_trigger ON public.pendaftar;
 CREATE TRIGGER set_no_peserta_trigger
-BEFORE INSERT ON public.pendaftar
+BEFORE INSERT OR UPDATE OF cabang_lomba ON public.pendaftar
 FOR EACH ROW
 EXECUTE FUNCTION generate_no_peserta();

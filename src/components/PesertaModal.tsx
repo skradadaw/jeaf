@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
 import CustomSelect from '@/components/CustomSelect';
 import CustomDatePicker from '@/components/CustomDatePicker';
+import { PREFIX_PER_CABANG, KUOTA_PER_CABANG, CABANG_CONFIG } from '@/lib/constants';
 
 interface PesertaModalProps {
   isOpen: boolean;
@@ -38,64 +39,6 @@ const parseDateString = (str?: string | null): Date | null => {
   return isNaN(parsed.getTime()) ? null : parsed;
 };
 
-const CABANG_CONFIG: Record<string, { icon: string; color: string; bg: string; text: string; border: string; iconBg: string }> = {
-  'Adzan': { 
-    icon: 'fa-solid fa-volume-high', 
-    color: 'bg-indigo-100 text-indigo-700',
-    bg: 'bg-indigo-50',
-    text: 'text-indigo-700',
-    border: 'border-indigo-200',
-    iconBg: 'bg-indigo-50 text-indigo-600',
-  },
-  'Fashion Show': { 
-    icon: 'fa-solid fa-vest-patches', 
-    color: 'bg-rose-100 text-rose-700',
-    bg: 'bg-rose-50',
-    text: 'text-rose-700',
-    border: 'border-rose-200',
-    iconBg: 'bg-rose-50 text-rose-600',
-  },
-  'MHQ': { 
-    icon: 'fa-solid fa-book-quran', 
-    color: 'bg-emerald-100 text-emerald-700',
-    bg: 'bg-emerald-50',
-    text: 'text-emerald-700',
-    border: 'border-emerald-200',
-    iconBg: 'bg-emerald-50 text-emerald-600',
-  },
-  'Karya Kolase': { 
-    icon: 'fa-solid fa-scissors', 
-    color: 'bg-orange-100 text-orange-700',
-    bg: 'bg-orange-50',
-    text: 'text-orange-700',
-    border: 'border-orange-200',
-    iconBg: 'bg-orange-50 text-orange-600',
-  },
-  'Mewarnai': { 
-    icon: 'fa-solid fa-palette', 
-    color: 'bg-amber-100 text-amber-700',
-    bg: 'bg-amber-50',
-    text: 'text-amber-800',
-    border: 'border-amber-200',
-    iconBg: 'bg-amber-50 text-amber-600',
-  },
-  'Tendangan Penalti': { 
-    icon: 'fa-solid fa-futbol', 
-    color: 'bg-sky-100 text-sky-700',
-    bg: 'bg-sky-50',
-    text: 'text-sky-700',
-    border: 'border-sky-200',
-    iconBg: 'bg-sky-50 text-sky-600',
-  },
-  'Menyanyi Solo': { 
-    icon: 'fa-solid fa-microphone', 
-    color: 'bg-purple-100 text-purple-700',
-    bg: 'bg-purple-50',
-    text: 'text-purple-700',
-    border: 'border-purple-200',
-    iconBg: 'bg-purple-50 text-purple-600',
-  },
-};
 const CABANG_ICONS = CABANG_CONFIG;
 
 export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess }: PesertaModalProps) {
@@ -123,20 +66,82 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
     
     const { id, nama_anak, nama_ortu, asal_sekolah, tempat_lahir, tgl_lahir, no_wa, no_wa_pembimbing, cabang_lomba, minat_sekolah, jenis_kelamin } = formData;
     
+    const isCabangChanged = peserta.cabang_lomba !== cabang_lomba;
+    let newNoPeserta = formData.no_peserta || peserta.no_peserta;
+
+    if (isCabangChanged) {
+      // 1. Validasi kuota cabang lomba tujuan
+      const targetQuota = KUOTA_PER_CABANG[cabang_lomba] || 60;
+      const { count: currentTargetCount, error: countErr } = await supabase
+        .from('pendaftar')
+        .select('*', { count: 'exact', head: true })
+        .eq('cabang_lomba', cabang_lomba);
+
+      if (countErr) {
+        console.error('Error checking target quota:', countErr);
+      }
+
+      if ((currentTargetCount || 0) >= targetQuota) {
+        toast.error(`Gagal pindah lomba: Kuota cabang "${cabang_lomba}" sudah PENUH (${targetQuota}/${targetQuota} peserta)!`);
+        setIsSaving(false);
+        return;
+      }
+
+      const prefix = PREFIX_PER_CABANG[cabang_lomba] || 'JEA';
+      const confirmMsg = `Anda akan memindahkan cabang lomba "${nama_anak}" dari "${peserta.cabang_lomba}" ke "${cabang_lomba}".\n\nNomor peserta akan otomatis diperbarui dengan kode prefix "${prefix}-2026-xxx".\n\nLanjutkan perubahan?`;
+      if (!window.confirm(confirmMsg)) {
+        setIsSaving(false);
+        return;
+      }
+
+      // 2. Cari nomor urut terbesar di cabang baru agar nomor selalu urut dan tidak duplikat
+      const { data: existingInCabang } = await supabase
+        .from('pendaftar')
+        .select('no_peserta')
+        .eq('cabang_lomba', cabang_lomba);
+
+      let maxSeq = 0;
+      if (existingInCabang && existingInCabang.length > 0) {
+        for (const item of existingInCabang) {
+          if (item.no_peserta) {
+            const match = item.no_peserta.match(/-(\d+)$/);
+            if (match) {
+              const num = parseInt(match[1], 10);
+              if (!isNaN(num) && num > maxSeq) {
+                maxSeq = num;
+              }
+            }
+          }
+        }
+      }
+      const newSeq = Math.max(maxSeq + 1, (existingInCabang?.length || 0) + 1);
+      newNoPeserta = `${prefix}-2026-${String(newSeq).padStart(3, '0')}`;
+    }
+
+    const updatePayload: any = { 
+      nama_anak, 
+      nama_ortu, 
+      asal_sekolah, 
+      tempat_lahir, 
+      tgl_lahir, 
+      no_wa, 
+      no_wa_pembimbing, 
+      cabang_lomba, 
+      minat_sekolah,
+      jenis_kelamin
+    };
+
+    if (isCabangChanged) {
+      updatePayload.no_peserta = newNoPeserta;
+      // Reset penilaian lomba sebelumnya jika ada
+      updatePayload.nilai_total = null;
+      updatePayload.detail_nilai = null;
+      updatePayload.catatan_juri = null;
+    }
+
     const { error } = await supabase
       .from('pendaftar')
-      .update({ 
-        nama_anak, 
-        nama_ortu, 
-        asal_sekolah, 
-        tempat_lahir, 
-        tgl_lahir, 
-        no_wa, 
-        no_wa_pembimbing, 
-        cabang_lomba, 
-        minat_sekolah,
-        jenis_kelamin
-      })
+      .update(updatePayload)
       .eq('id', id);
 
     setIsSaving(false);
@@ -145,8 +150,16 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
       console.error('Error updating data:', error);
       toast.error(`Gagal menyimpan perubahan: ${error.message}`);
     } else {
-      toast.success('Data berhasil diperbarui!');
-      onUpdateSuccess(formData);
+      const finalData = { ...formData, ...updatePayload };
+      if (isCabangChanged) {
+        toast.success(
+          `Cabang lomba diubah ke ${cabang_lomba}!\nNomor peserta baru: ${newNoPeserta}`,
+          { duration: 6000 }
+        );
+      } else {
+        toast.success('Data berhasil diperbarui!');
+      }
+      onUpdateSuccess(finalData);
       onClose(); // Tutup modal otomatis jika sukses tersinkronisasi
     }
   };
@@ -364,6 +377,21 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
                     <QRCode value={peserta.id} size={90} level="M" />
                   </div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">QR Peserta</p>
+                  
+                  {peserta.no_wa && (
+                    <a
+                      href={`https://wa.me/62${peserta.no_wa.replace(/\D/g, '').replace(/^0/, '')}?text=${encodeURIComponent(
+                        `Halo Ayah/Bunda dari ananda *${peserta.nama_anak}*,\nBerikut informasi e-tiket terbaru JinGa Festival 2026:\n\n• Cabang Lomba: *${peserta.cabang_lomba}*\n• No. Peserta: *${peserta.no_peserta || '-'}\n\nSilakan akses dan cetak e-tiket resmi melalui tautan ini:\n${typeof window !== 'undefined' ? window.location.origin : ''}/tiket/${peserta.id}\n\nTerima kasih!`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 w-full py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      title="Kirim link tiket terbaru ke nomor WhatsApp orang tua"
+                    >
+                      <i className="fa-brands fa-whatsapp text-emerald-600 text-sm"></i>
+                      <span>Kirim Tiket ke WA Ortu</span>
+                    </a>
+                  )}
                 </div>
               </div>
             
@@ -476,6 +504,21 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
                             color: CABANG_ICONS[cab]?.color || 'bg-slate-100 text-slate-600'
                           }))}
                         />
+
+                        {formData.cabang_lomba !== peserta.cabang_lomba && (
+                          <div className="mt-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2.5 shadow-xs">
+                            <i className="fa-solid fa-circle-exclamation text-amber-500 mt-0.5 text-sm shrink-0"></i>
+                            <div className="space-y-1">
+                              <p className="font-bold text-amber-950">Perubahan Cabang Lomba Terdeteksi</p>
+                              <p className="text-[11px] text-amber-800 leading-relaxed">
+                                Nomor peserta akan otomatis diubah dari <strong>{peserta.no_peserta || '-'}</strong> ke prefix <strong>{PREFIX_PER_CABANG[formData.cabang_lomba] || 'JEA'}-2026-xxx</strong> saat disimpan.
+                              </p>
+                              <p className="text-[10px] text-amber-700 font-medium">
+                                💡 QR Code kehadiran tetap sama (menggunakan ID), namun orang tua disarankan mengunduh e-tiket terbaru.
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div>
