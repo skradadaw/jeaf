@@ -340,13 +340,24 @@ function DaftarFormContent() {
         }
     };
 
-    // Options dropdown cabang lomba dengan icon persis seperti di halaman utama
+    // Options dropdown cabang lomba dengan icon dan kuota real-time
     const selectOptions = CABANG_LOMBA_LIST.map(item => {
+        const terisi = lombaCounts[item.dbValue] || 0;
+        const sisa = Math.max(0, item.quota - terisi);
+        const isFull = sisa === 0;
+
         return {
             value: item.dbValue,
             label: item.title,
             icon: item.icon,
-            color: `${item.classes.tagBg} ${item.classes.tagText}`
+            color: `${item.classes.tagBg} ${item.classes.tagText}`,
+            badge: isFull ? 'Penuh' : `Sisa ${sisa}`,
+            badgeColor: isFull 
+                ? 'bg-rose-100 text-rose-700 border-rose-200' 
+                : sisa <= 10 
+                ? 'bg-amber-100 text-amber-800 border-amber-200' 
+                : 'bg-emerald-100 text-emerald-800 border-emerald-200',
+            disabled: isFull
         };
     });
 

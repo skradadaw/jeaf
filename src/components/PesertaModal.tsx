@@ -87,7 +87,7 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
 
     if (isCabangChanged) {
       // 1. Validasi kuota cabang lomba tujuan
-      const targetQuota = KUOTA_PER_CABANG[cabang_lomba] || 60;
+      const targetQuota = KUOTA_PER_CABANG[cabang_lomba] ?? 60;
       const { count: currentTargetCount, error: countErr } = await supabase
         .from('pendaftar')
         .select('*', { count: 'exact', head: true })
