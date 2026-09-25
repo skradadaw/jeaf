@@ -9,6 +9,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { toast } from 'react-hot-toast';
 import CustomSelect from '@/components/CustomSelect';
 import { exportPesertaToExcel } from '@/lib/exportPeserta';
+import { CABANG_LOMBA_LIST } from '@/lib/constants';
 
 export default function DataPesertaPage() {
   const [registrations, setRegistrations] = useState<any[]>([]);
@@ -23,9 +24,7 @@ export default function DataPesertaPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Data options for filter
-  const cabangLombaList = [
-    'Semua', 'Adzan', 'Fashion Show', 'MHQ', 'Karya Kolase', 'Mewarnai', 'Tendangan Penalti', 'Menyanyi Solo'
-  ];
+  const cabangLombaList = ['Semua', ...CABANG_LOMBA_LIST.map(c => c.dbValue)];
 
   const CABANG_BADGE_CONFIG: Record<string, { bg: string; text: string; border: string; icon: string; iconColor: string; iconBoxBg: string }> = {
     'Adzan': {

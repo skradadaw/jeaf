@@ -1,5 +1,5 @@
 // Konfigurasi Terpusat Cabang Lomba & Kuota Peserta JinGa 2026
-// Total Kuota Keseluruhan: 500 Peserta
+// Total Kuota Keseluruhan: 520 Peserta
 
 export interface CabangLombaConfig {
   id: number;
@@ -84,7 +84,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     faIcon: 'fa-solid fa-palette',
     target: 'TK A & B',
     desc: 'Mengekspresikan imajinasi dan gradasi warna ceria pada sketsa petualang cilik JinGa.',
-    quota: 126, // Kuota disesuaikan: 144 - 18 = 126 (Pengurangan 18 dialihkan ke Tendangan Penalti)
+    quota: 130, // Kuota ditambahkan: 126 + 4 = 130
     price: 'Gratis',
     prefix: 'WAR',
     progressHex: '#F59E0B',
@@ -108,7 +108,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     faIcon: 'fa-solid fa-microphone',
     target: 'TK A & B',
     desc: 'Menumbuhkan keberanian dan bakat tarik suara anak dengan lagu-lagu anak ceria.',
-    quota: 32, // Kuota disesuaikan: 46 - 14 = 32 (Total pengurangan 28 dari basis 60)
+    quota: 40, // Kuota ditambahkan: 32 + 8 = 40
     price: 'Gratis',
     prefix: 'NYS',
     progressHex: '#F59E0B',
@@ -156,7 +156,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     faIcon: 'fa-solid fa-volume-high',
     target: 'Khusus Ikhwan',
     desc: 'Melantunkan panggilan adzan Subuh/Dzuhur dengan kemerduan nada, kejelasan makhraj, dan adab muadzin.',
-    quota: 32, // Kuota disesuaikan: 46 - 14 = 32 (Total pengurangan 28 dari basis 60)
+    quota: 40, // Kuota ditambahkan: 32 + 8 = 40
     price: 'Gratis',
     prefix: 'ADZ',
     progressHex: '#10B981',
@@ -197,8 +197,8 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
   },
 ];
 
-// Total Kuota Peserta (50 + 32 + 126 + 32 + 60 + 32 + 168 = 500)
-export const TOTAL_KUOTA_TARGET = 500;
+// Total Kuota Peserta (50 + 32 + 130 + 40 + 60 + 40 + 168 = 520)
+export const TOTAL_KUOTA_TARGET = CABANG_LOMBA_LIST.reduce((sum, item) => sum + item.quota, 0);
 
 export const KUOTA_PER_CABANG: Record<string, number> = CABANG_LOMBA_LIST.reduce((acc, curr) => {
   acc[curr.dbValue] = curr.quota;

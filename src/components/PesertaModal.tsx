@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
 import CustomSelect from '@/components/CustomSelect';
 import CustomDatePicker from '@/components/CustomDatePicker';
-import { PREFIX_PER_CABANG, KUOTA_PER_CABANG, CABANG_CONFIG } from '@/lib/constants';
+import { PREFIX_PER_CABANG, KUOTA_PER_CABANG, CABANG_CONFIG, CABANG_LOMBA_LIST } from '@/lib/constants';
 
 interface PesertaModalProps {
   isOpen: boolean;
@@ -180,7 +180,7 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
     }
   };
 
-  const cabangLombaList = ['Adzan', 'Fashion Show', 'MHQ', 'Karya Kolase', 'Mewarnai', 'Tendangan Penalti', 'Menyanyi Solo'];
+  const cabangLombaList = CABANG_LOMBA_LIST.map(c => c.dbValue);
   
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
