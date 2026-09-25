@@ -1,5 +1,5 @@
 // Konfigurasi Terpusat Cabang Lomba & Kuota Peserta JinGa 2026
-// Total Kuota Keseluruhan: 525 Peserta
+// Total Kuota Keseluruhan: 505 Peserta
 
 export interface CabangLombaConfig {
   id: number;
@@ -36,7 +36,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     faIcon: 'fa-solid fa-book-quran',
     target: 'TK A & B',
     desc: 'Uji hafalan surah-surah pendek pilihan dengan tartil, makhraj yang benar, dan adab tilawah.',
-    quota: 50, // Kuota disesuaikan: 60 - 10 = 50 (Pengurangan 10 dialihkan ke Tendangan Penalti)
+    quota: 45, // Kuota ditutup sesuai pendaftar terdaftar (45 peserta)
     price: 'Gratis',
     prefix: 'MHQ',
     progressHex: '#10B981',
@@ -60,7 +60,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     faIcon: 'fa-solid fa-scissors',
     target: 'TK A & B',
     desc: 'Berkreasi membuat seni kolase yang indah untuk melatih kreativitas dan motorik halus.',
-    quota: 32, // Kuota disesuaikan: 60 - 28 = 32
+    quota: 32, // Kuota ditutup sesuai pendaftar terdaftar (32 peserta)
     price: 'Gratis',
     prefix: 'KLS',
     progressHex: '#F59E0B',
@@ -84,7 +84,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     faIcon: 'fa-solid fa-palette',
     target: 'TK A & B',
     desc: 'Mengekspresikan imajinasi dan gradasi warna ceria pada sketsa petualang cilik JinGa.',
-    quota: 135, // Kuota ditambahkan: 130 + 5 = 135
+    quota: 132, // Kuota ditutup sesuai pendaftar terdaftar (132 peserta)
     price: 'Gratis',
     prefix: 'WAR',
     progressHex: '#F59E0B',
@@ -108,7 +108,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     faIcon: 'fa-solid fa-microphone',
     target: 'TK A & B',
     desc: 'Menumbuhkan keberanian dan bakat tarik suara anak dengan lagu-lagu anak ceria.',
-    quota: 40, // Kuota ditambahkan: 32 + 8 = 40
+    quota: 36, // Kuota ditutup sesuai pendaftar terdaftar (36 peserta)
     price: 'Gratis',
     prefix: 'NYS',
     progressHex: '#F59E0B',
@@ -132,7 +132,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     faIcon: 'fa-solid fa-shirt',
     target: 'Putra & Putri',
     desc: 'Peragaan busana muslim/muslimah cilik bertema "Little Explorer" yang syar\'i, anggun, dan percaya diri.',
-    quota: 60, // Kuota dikembalikan ke 60 peserta
+    quota: 59, // Kuota ditutup sesuai pendaftar terdaftar (59 peserta)
     price: 'Gratis',
     prefix: 'FSH',
     progressHex: '#F59E0B',
@@ -156,7 +156,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     faIcon: 'fa-solid fa-volume-high',
     target: 'Khusus Ikhwan',
     desc: 'Melantunkan panggilan adzan Subuh/Dzuhur dengan kemerduan nada, kejelasan makhraj, dan adab muadzin.',
-    quota: 40, // Kuota ditambahkan: 32 + 8 = 40
+    quota: 29, // Kuota ditutup sesuai pendaftar terdaftar (29 peserta)
     price: 'Gratis',
     prefix: 'ADZ',
     progressHex: '#10B981',
@@ -180,7 +180,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     faIcon: 'fa-solid fa-futbol',
     target: 'Ketangkasan',
     desc: 'Tantangan ketepatan menendang bola ke gawang untuk melatih fokus dan motorik anak.',
-    quota: 168, // Kuota ditambahkan: 140 + 28 = 168 (Tambahan 28 dialihkan dari Mewarnai -18 dan MHQ -10)
+    quota: 172, // Kuota ditambahkan 4 orang: 168 + 4 = 172
     price: 'Gratis',
     prefix: 'PNL',
     progressHex: '#0284C7',
@@ -197,7 +197,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
   },
 ];
 
-// Total Kuota Peserta (50 + 32 + 135 + 40 + 60 + 40 + 168 = 525)
+// Total Kuota Peserta (45 + 32 + 132 + 36 + 59 + 29 + 172 = 505)
 export const TOTAL_KUOTA_TARGET = CABANG_LOMBA_LIST.reduce((sum, item) => sum + item.quota, 0);
 
 export const KUOTA_PER_CABANG: Record<string, number> = CABANG_LOMBA_LIST.reduce((acc, curr) => {
