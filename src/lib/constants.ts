@@ -1,5 +1,5 @@
 // Konfigurasi Terpusat Cabang Lomba & Kuota Peserta JinGa 2026
-// Total Kuota Keseluruhan: 520 Peserta
+// Total Kuota Keseluruhan: 525 Peserta
 
 export interface CabangLombaConfig {
   id: number;
@@ -84,7 +84,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     faIcon: 'fa-solid fa-palette',
     target: 'TK A & B',
     desc: 'Mengekspresikan imajinasi dan gradasi warna ceria pada sketsa petualang cilik JinGa.',
-    quota: 130, // Kuota ditambahkan: 126 + 4 = 130
+    quota: 135, // Kuota ditambahkan: 130 + 5 = 135
     price: 'Gratis',
     prefix: 'WAR',
     progressHex: '#F59E0B',
@@ -197,7 +197,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
   },
 ];
 
-// Total Kuota Peserta (50 + 32 + 130 + 40 + 60 + 40 + 168 = 520)
+// Total Kuota Peserta (50 + 32 + 135 + 40 + 60 + 40 + 168 = 525)
 export const TOTAL_KUOTA_TARGET = CABANG_LOMBA_LIST.reduce((sum, item) => sum + item.quota, 0);
 
 export const KUOTA_PER_CABANG: Record<string, number> = CABANG_LOMBA_LIST.reduce((acc, curr) => {
