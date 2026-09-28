@@ -720,6 +720,13 @@ function DaftarFormContent() {
                                         required
                                     />
 
+                                    {isSelectedLombaFull && (
+                                        <div className="mt-2.5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                                            <i className="fa-solid fa-triangle-exclamation text-rose-500 shrink-0"></i>
+                                            <span>Mohon maaf, kuota pendaftaran untuk cabang <strong>{formData.lomba}</strong> sudah <strong>PENUH</strong>. Silakan pilih cabang lomba lain yang masih tersedia (Karya Kolase).</span>
+                                        </div>
+                                    )}
+
                                     <p className="mt-2 text-xs text-slate-500 font-medium flex items-center gap-1.5">
                                         <i className="fa-solid fa-circle-info text-amber-500 text-[11px]"></i> Pastikan cabang lomba yang dipilih sesuai dengan usia dan minat peserta.
                                     </p>
@@ -793,8 +800,8 @@ function DaftarFormContent() {
                             <div className="pt-4 sm:pt-6">
                                 <button
                                     type="submit"
-                                    disabled={isSubmitting}
-                                    className={`w-full flex items-center justify-center gap-3 px-8 py-3.5 sm:py-4 rounded-xl font-bold text-base sm:text-lg transition-all ${isSubmitting
+                                    disabled={isSubmitting || isSelectedLombaFull}
+                                    className={`w-full flex items-center justify-center gap-3 px-8 py-3.5 sm:py-4 rounded-xl font-bold text-base sm:text-lg transition-all ${isSubmitting || isSelectedLombaFull
                                             ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed'
                                             : 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-900 shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
                                         }`}
@@ -803,6 +810,11 @@ function DaftarFormContent() {
                                         <>
                                             <i className="fa-solid fa-circle-notch fa-spin"></i>
                                             Memverifikasi & Mendaftar...
+                                        </>
+                                    ) : isSelectedLombaFull ? (
+                                        <>
+                                            <i className="fa-solid fa-ban"></i>
+                                            Kuota Lomba Ini Sudah Penuh
                                         </>
                                     ) : (
                                         <>
