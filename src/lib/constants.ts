@@ -1,5 +1,5 @@
 // Konfigurasi Terpusat Cabang Lomba & Kuota Peserta JinGa 2026
-// Total Kuota Keseluruhan: 505 Peserta
+// Total Kuota Keseluruhan: 510 Peserta
 
 export interface CabangLombaConfig {
   id: number;
@@ -132,7 +132,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     faIcon: 'fa-solid fa-shirt',
     target: 'Putra & Putri',
     desc: 'Peragaan busana muslim/muslimah cilik bertema "Little Explorer" yang syar\'i, anggun, dan percaya diri.',
-    quota: 59, // Kuota ditutup sesuai pendaftar terdaftar (59 peserta)
+    quota: 60, // Kuota ditutup sesuai pendaftar terdaftar (60 peserta)
     price: 'Gratis',
     prefix: 'FSH',
     progressHex: '#F59E0B',
@@ -156,7 +156,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     faIcon: 'fa-solid fa-volume-high',
     target: 'Khusus Ikhwan',
     desc: 'Melantunkan panggilan adzan Subuh/Dzuhur dengan kemerduan nada, kejelasan makhraj, dan adab muadzin.',
-    quota: 29, // Kuota ditutup sesuai pendaftar terdaftar (29 peserta)
+    quota: 31, // Kuota ditutup sesuai pendaftar terdaftar (31 peserta)
     price: 'Gratis',
     prefix: 'ADZ',
     progressHex: '#10B981',
@@ -180,7 +180,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     faIcon: 'fa-solid fa-futbol',
     target: 'Ketangkasan',
     desc: 'Tantangan ketepatan menendang bola ke gawang untuk melatih fokus dan motorik anak.',
-    quota: 169, // Kuota ditutup sesuai pendaftar terdaftar (169 peserta)
+    quota: 171, // Kuota ditambahkan 2 slot: 169 + 2 = 171 (Sisa 2 slot terbuka untuk pendaftaran)
     price: 'Gratis',
     prefix: 'PNL',
     progressHex: '#0284C7',
@@ -197,7 +197,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
   },
 ];
 
-// Total Kuota Peserta (45 + 34 + 133 + 36 + 59 + 29 + 169 = 505)
+// Total Kuota Peserta (45 + 34 + 133 + 36 + 60 + 31 + 171 = 510)
 export const TOTAL_KUOTA_TARGET = CABANG_LOMBA_LIST.reduce((sum, item) => sum + item.quota, 0);
 
 export const KUOTA_PER_CABANG: Record<string, number> = CABANG_LOMBA_LIST.reduce((acc, curr) => {

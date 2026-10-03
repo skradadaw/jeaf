@@ -723,7 +723,7 @@ function DaftarFormContent() {
                                     {isSelectedLombaFull && (
                                         <div className="mt-2.5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
                                             <i className="fa-solid fa-triangle-exclamation text-rose-500 shrink-0"></i>
-                                            <span>Mohon maaf, kuota pendaftaran untuk cabang <strong>{formData.lomba}</strong> sudah <strong>PENUH</strong>. Silakan pilih cabang lomba lain yang masih tersedia (Karya Kolase).</span>
+                                            <span>Mohon maaf, kuota pendaftaran untuk cabang <strong>{formData.lomba}</strong> sudah <strong>PENUH</strong>. Silakan pilih cabang lomba lain yang masih tersedia.</span>
                                         </div>
                                     )}
 
