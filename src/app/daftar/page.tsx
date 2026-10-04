@@ -252,9 +252,29 @@ function DaftarFormContent() {
                 fotoUrl = publicUrl;
             }
 
-            // Generate No Peserta berdasarkan prefix cabang lomba
+            // Generate No Peserta unik berdasarkan nomor urut tertinggi di cabang lomba
+            const { data: existingInCabang } = await supabase
+                .from('pendaftar')
+                .select('no_peserta')
+                .eq('cabang_lomba', formData.lomba);
+
+            let maxSeq = 0;
+            if (existingInCabang && existingInCabang.length > 0) {
+                for (const item of existingInCabang) {
+                    if (item.no_peserta) {
+                        const match = item.no_peserta.match(/-(\d+)$/);
+                        if (match) {
+                            const num = parseInt(match[1], 10);
+                            if (!isNaN(num) && num > maxSeq) {
+                                maxSeq = num;
+                            }
+                        }
+                    }
+                }
+            }
+
             const prefix = PREFIX_PER_CABANG[formData.lomba] || 'JEA';
-            const nextNum = (countLomba || 0) + 1;
+            const nextNum = Math.max(maxSeq + 1, (countLomba || 0) + 1);
             const noPesertaBaru = `${prefix}-2026-${nextNum.toString().padStart(3, '0')}`;
 
             const { data: insertData, error: insertError } = await supabase
