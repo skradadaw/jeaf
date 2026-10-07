@@ -1,129 +1,5 @@
--- Buat tabel pendaftar
-CREATE TABLE public.pendaftar (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    nama_anak TEXT NOT NULL,
-    jenis_kelamin TEXT NOT NULL,
-    tempat_lahir TEXT,
-    tgl_lahir DATE NOT NULL,
-    asal_sekolah TEXT NOT NULL,
-    cabang_lomba TEXT NOT NULL,
-    nama_ortu TEXT NOT NULL,
-    no_wa TEXT NOT NULL,
-    no_wa_pembimbing TEXT,
-    foto_url TEXT,
-    minat_sekolah TEXT,
-    status_pembayaran TEXT DEFAULT 'Menunggu' NOT NULL,
-    status_kehadiran TEXT DEFAULT 'Belum Hadir' NOT NULL,
-    waktu_kehadiran TIMESTAMP WITH TIME ZONE
-);
-
--- Atur kebijakan keamanan (Row Level Security / RLS)
-ALTER TABLE public.pendaftar ENABLE ROW LEVEL SECURITY;
-
--- Izinkan anon (pendaftar publik) untuk MENGIRIM / INSERT data
-CREATE POLICY "Izinkan publik untuk mendaftar" 
-ON public.pendaftar 
-FOR INSERT 
-TO anon 
-WITH CHECK (true);
-
--- Izinkan anon (karena ini tanpa auth admin yang ketat) untuk MEMBACA data di dashboard
-CREATE POLICY "Izinkan panitia membaca data" 
-ON public.pendaftar 
-FOR SELECT 
-TO anon 
-USING (true);
-
--- Izinkan anon untuk MENGUBAH (UPDATE) data pendaftar (untuk mengubah status kehadiran)
-CREATE POLICY "Izinkan panitia mengubah data" 
-ON public.pendaftar 
-FOR UPDATE 
-TO anon 
-USING (true)
-WITH CHECK (true);
-
--- Izinkan anon untuk MENGHAPUS (DELETE) data pendaftar
-CREATE POLICY "Izinkan panitia menghapus data" 
-ON public.pendaftar 
-FOR DELETE 
-TO anon 
-USING (true);
-
--- Buat storage bucket untuk menyimpan foto anak
-INSERT INTO storage.buckets (id, name, public) 
-VALUES ('foto-peserta', 'foto-peserta', true);
-
--- Izinkan publik untuk upload ke storage bucket 'foto-peserta'
-CREATE POLICY "Izinkan publik upload foto" 
-ON storage.objects 
-FOR INSERT 
-TO anon 
-WITH CHECK (bucket_id = 'foto-peserta');
-
--- Izinkan publik untuk melihat foto
-CREATE POLICY "Izinkan publik melihat foto" 
-ON storage.objects 
-FOR SELECT 
-TO anon 
-USING (bucket_id = 'foto-peserta');
- 
--- Tambahan kolom untuk fitur Penilaian Juri
-ALTER TABLE public.pendaftar ADD COLUMN IF NOT EXISTS nilai_total INTEGER, ADD COLUMN IF NOT EXISTS detail_nilai JSONB, ADD COLUMN IF NOT EXISTS catatan_juri TEXT;
-
--- Tambahan kolom untuk nomor peserta & tempat lahir
-ALTER TABLE public.pendaftar ADD COLUMN IF NOT EXISTS no_peserta TEXT;
-ALTER TABLE public.pendaftar ADD COLUMN IF NOT EXISTS tempat_lahir TEXT;
-
--- Trigger untuk membuat nomor peserta otomatis saat ada pendaftar baru atau perpindahan cabang lomba
-CREATE OR REPLACE FUNCTION generate_no_peserta()
-RETURNS TRIGGER AS $$
-DECLARE
-    prefix TEXT;
-    seq INT;
-BEGIN
-    -- Hanya jalankan jika pendaftaran baru (INSERT) atau cabang lomba diubah (UPDATE)
-    IF (TG_OP = 'INSERT') OR (TG_OP = 'UPDATE' AND NEW.cabang_lomba IS DISTINCT FROM OLD.cabang_lomba) THEN
-        CASE NEW.cabang_lomba
-            WHEN 'Adzan' THEN prefix := 'ADZ';
-            WHEN 'Fashion Show' THEN prefix := 'FSH';
-            WHEN 'MHQ' THEN prefix := 'MHQ';
-            WHEN 'Karya Kolase' THEN prefix := 'KLS';
-            WHEN 'Mewarnai' THEN prefix := 'WAR';
-            WHEN 'Tendangan Penalti' THEN prefix := 'PNL';
-            WHEN 'Menyanyi Solo' THEN prefix := 'NYS';
-            ELSE prefix := 'JEA';
-        END CASE;
-
-        SELECT COUNT(*) INTO seq
-        FROM public.pendaftar
-        WHERE cabang_lomba = NEW.cabang_lomba AND id <> COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid);
-
-        seq := seq + 1;
-        NEW.no_peserta := prefix || '-2026-' || LPAD(seq::text, 3, '0');
-        
-        -- Reset nilai lomba sebelumnya jika berpindah cabang lomba
-        IF TG_OP = 'UPDATE' THEN
-            NEW.nilai_total := NULL;
-            NEW.detail_nilai := NULL;
-            NEW.catatan_juri := NULL;
-        END IF;
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS set_no_peserta_trigger ON public.pendaftar;
-CREATE TRIGGER set_no_peserta_trigger
-BEFORE INSERT OR UPDATE OF cabang_lomba ON public.pendaftar
-FOR EACH ROW
-EXECUTE FUNCTION generate_no_peserta();
-
--- ============================================================
--- Sistem penilaian multi-juri
--- Jalankan bagian ini di Supabase SQL Editor untuk database lama.
--- ============================================================
+-- Migrasi khusus database JinGa yang sudah memiliki tabel public.pendaftar.
+-- Jalankan seluruh isi file ini di Supabase SQL Editor.
 
 CREATE TABLE IF NOT EXISTS public.juri (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -184,7 +60,6 @@ DROP POLICY IF EXISTS "Izinkan panitia mengubah penilaian juri" ON public.penila
 CREATE POLICY "Izinkan panitia mengubah penilaian juri"
 ON public.penilaian_juri FOR UPDATE TO anon USING (true) WITH CHECK (true);
 
--- Dua juri awal untuk setiap cabang. Nama dapat diubah langsung dari tabel juri.
 INSERT INTO public.juri (kode, nama) VALUES
     ('ADZ-J1', 'Juri 1 Adzan'), ('ADZ-J2', 'Juri 2 Adzan'),
     ('FSH-J1', 'Juri 1 Fashion Show'), ('FSH-J2', 'Juri 2 Fashion Show'),
@@ -209,7 +84,6 @@ JOIN (VALUES
 ) AS mapping(kode, cabang_lomba) ON mapping.kode = j.kode
 ON CONFLICT (juri_id, cabang_lomba) DO NOTHING;
 
--- Pertahankan kolom nilai lama sebagai ringkasan rata-rata nilai final semua juri.
 CREATE OR REPLACE FUNCTION sync_nilai_akhir_peserta()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -243,3 +117,8 @@ DROP TRIGGER IF EXISTS sync_nilai_akhir_peserta_trigger ON public.penilaian_juri
 CREATE TRIGGER sync_nilai_akhir_peserta_trigger
 AFTER INSERT OR UPDATE OR DELETE ON public.penilaian_juri
 FOR EACH ROW EXECUTE FUNCTION sync_nilai_akhir_peserta();
+
+-- Pemeriksaan hasil migrasi. Hasil yang benar: 14 juri dan 14 penugasan.
+SELECT
+    (SELECT COUNT(*) FROM public.juri) AS jumlah_juri,
+    (SELECT COUNT(*) FROM public.juri_kategori) AS jumlah_penugasan;

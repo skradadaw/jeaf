@@ -16,7 +16,21 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
   const menuItems = [
     { name: 'Dashboard', path: '/panitia/dashboard', icon: 'fa-chart-pie', color: 'text-sky-500' },
     { name: 'Data Peserta', path: '/panitia/peserta', icon: 'fa-users', color: 'text-amber-500' },
-    { name: 'Penilaian Juri', path: '/panitia/penilaian', icon: 'fa-star', color: 'text-purple-500' },
+    {
+      name: 'Penilaian Juri',
+      path: '/panitia/penilaian',
+      icon: 'fa-star',
+      color: 'text-purple-500',
+      children: [
+        { name: 'Adzan', path: '/panitia/penilaian/adzan', icon: 'fa-microphone' },
+        { name: 'Fashion Show', path: '/panitia/penilaian/fashion-show', icon: 'fa-person-dress' },
+        { name: 'MHQ', path: '/panitia/penilaian/mhq', icon: 'fa-book-quran' },
+        { name: 'Karya Kolase', path: '/panitia/penilaian/karya-kolase', icon: 'fa-palette' },
+        { name: 'Mewarnai', path: '/panitia/penilaian/mewarnai', icon: 'fa-fill-drip' },
+        { name: 'Tendangan Penalti', path: '/panitia/penilaian/tendangan-penalti', icon: 'fa-futbol' },
+        { name: 'Menyanyi Solo', path: '/panitia/penilaian/menyanyi-solo', icon: 'fa-music' },
+      ],
+    },
     { name: 'Pengaturan', path: '/panitia/pengaturan', icon: 'fa-gear', color: 'text-slate-500' },
   ];
 
@@ -39,12 +53,29 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
           {menuItems.map((item) => {
             const isActive = pathname.startsWith(item.path);
             return (
-              <Link key={item.name} href={item.path} className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all ${isActive ? 'bg-white shadow-sm border border-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isActive ? 'bg-slate-50' : ''}`}>
-                    <i className={`fa-solid ${item.icon} ${isActive ? item.color : 'text-slate-400'}`}></i>
-                </div>
-                {item.name}
-              </Link>
+              <div key={item.name}>
+                <Link href={item.path} className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all ${isActive ? 'bg-white shadow-sm border border-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isActive ? 'bg-slate-50' : ''}`}>
+                      <i className={`fa-solid ${item.icon} ${isActive ? item.color : 'text-slate-400'}`}></i>
+                  </div>
+                  <span className="flex-1">{item.name}</span>
+                  {item.children && <i className={`fa-solid fa-chevron-down text-[10px] transition-transform ${isActive ? 'rotate-180 text-purple-400' : 'text-slate-300'}`}></i>}
+                </Link>
+
+                {item.children && isActive && (
+                  <div className="mt-2 ml-8 pl-3 border-l-2 border-purple-100 space-y-1">
+                    {item.children.map((child) => {
+                      const isChildActive = pathname === child.path;
+                      return (
+                        <Link key={child.path} href={child.path} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${isChildActive ? 'bg-purple-50 text-purple-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
+                          <i className={`fa-solid ${child.icon} w-4 text-center ${isChildActive ? 'text-purple-500' : 'text-slate-400'}`}></i>
+                          {child.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>
@@ -92,12 +123,29 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
                         {menuItems.map((item) => {
                             const isActive = pathname.startsWith(item.path);
                             return (
-                                <Link key={item.name} href={item.path} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all ${isActive ? 'bg-slate-50 text-slate-900 border border-slate-100' : 'text-slate-600 active:bg-slate-50'}`}>
-                                    <div className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center">
-                                        <i className={`fa-solid ${item.icon} ${isActive ? item.color : 'text-slate-400'}`}></i>
-                                    </div>
-                                    {item.name}
-                                </Link>
+                                <div key={item.name}>
+                                    <Link href={item.path} onClick={() => !item.children && setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all ${isActive ? 'bg-slate-50 text-slate-900 border border-slate-100' : 'text-slate-600 active:bg-slate-50'}`}>
+                                        <div className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center">
+                                            <i className={`fa-solid ${item.icon} ${isActive ? item.color : 'text-slate-400'}`}></i>
+                                        </div>
+                                        <span className="flex-1">{item.name}</span>
+                                        {item.children && <i className={`fa-solid fa-chevron-down text-[10px] ${isActive ? 'rotate-180 text-purple-400' : 'text-slate-300'}`}></i>}
+                                    </Link>
+
+                                    {item.children && isActive && (
+                                        <div className="mt-2 ml-8 pl-3 border-l-2 border-purple-100 space-y-1">
+                                            {item.children.map((child) => {
+                                                const isChildActive = pathname === child.path;
+                                                return (
+                                                    <Link key={child.path} href={child.path} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold ${isChildActive ? 'bg-purple-50 text-purple-700' : 'text-slate-500 active:bg-slate-50'}`}>
+                                                        <i className={`fa-solid ${child.icon} w-4 text-center ${isChildActive ? 'text-purple-500' : 'text-slate-400'}`}></i>
+                                                        {child.name}
+                                                    </Link>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
                             );
                         })}
                         <div className="h-px bg-slate-100 my-2"></div>

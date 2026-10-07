@@ -130,7 +130,8 @@ export default function DataPesertaPage() {
     const { data, error } = await supabase
       .from('pendaftar')
       .select('*')
-      .order('created_at', { ascending: false });
+      // Tampilkan nomor peserta awal pada halaman pertama.
+      .order('created_at', { ascending: true });
 
     if (error) {
       console.error('Error fetching data:', error);
