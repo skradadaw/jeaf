@@ -48,7 +48,7 @@ BEGIN
       CASE
         WHEN COUNT(DISTINCT aj.id) > 0
           AND COUNT(DISTINCT pj.juri_id) = COUNT(DISTINCT aj.id)
-        THEN ROUND(AVG(pj.nilai_total))::INTEGER
+        THEN SUM(pj.nilai_total)::INTEGER
         ELSE NULL
       END AS nilai_akhir,
       COALESCE(
@@ -118,10 +118,13 @@ BEGIN
           'cabang_lomba', p.cabang_lomba,
           'jumlah_juri', COALESCE(ss.jumlah_juri, 0),
           'jumlah_selesai', COALESCE(ss.jumlah_selesai, 0),
-          'nilai_akhir', ss.nilai_akhir,
+          'nilai_akhir', CASE WHEN caller_is_admin THEN ss.nilai_akhir ELSE NULL END,
           'juri_belum', COALESCE(TO_JSONB(ss.juri_belum), '[]'::JSONB),
           'nilai_juri', COALESCE(vs.scores, '[]'::JSONB)
-        ) ORDER BY p.created_at
+        ) ORDER BY
+          substring(p.no_peserta FROM '([0-9]+)$')::INTEGER NULLS LAST,
+          p.no_peserta,
+          p.created_at
       )
       FROM public.pendaftar AS p
       LEFT JOIN score_summary AS ss ON ss.pendaftar_id = p.id
@@ -186,7 +189,7 @@ BEGIN
       CASE
         WHEN COUNT(DISTINCT aj.id) > 0
           AND COUNT(DISTINCT pj.juri_id) = COUNT(DISTINCT aj.id)
-        THEN ROUND(AVG(pj.nilai_total))::INTEGER
+        THEN SUM(pj.nilai_total)::INTEGER
         ELSE NULL
       END AS nilai_akhir,
       COALESCE(
@@ -223,7 +226,7 @@ BEGIN
     'cabang_lomba', p.cabang_lomba,
     'jumlah_juri', s.jumlah_juri,
     'jumlah_selesai', s.jumlah_selesai,
-    'nilai_akhir', s.nilai_akhir,
+    'nilai_akhir', CASE WHEN caller_is_admin THEN s.nilai_akhir ELSE NULL END,
     'juri_belum', TO_JSONB(s.juri_belum),
     'nilai_juri', vs.scores
   ) INTO result

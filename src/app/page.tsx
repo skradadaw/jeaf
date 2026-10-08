@@ -416,7 +416,6 @@ export default function Home() {
                     {lombaList.map((lomba) => {
                         const terisi = participantCounts[lomba.dbValue] || 0;
                         const sisa = Math.max(0, lomba.quota - terisi);
-                        const persentase = lomba.quota > 0 ? Math.min(100, Math.round((terisi / lomba.quota) * 100)) : 0;
                         const isFull = sisa === 0;
 
                         return (

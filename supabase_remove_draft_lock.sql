@@ -175,8 +175,9 @@ BEGIN
     COUNT(DISTINCT j.id)::INTEGER,
     COUNT(DISTINCT pj.juri_id)::INTEGER,
     CASE
-      WHEN COUNT(DISTINCT pj.juri_id) = COUNT(DISTINCT j.id)
-      THEN ROUND(AVG(pj.nilai_total))::INTEGER
+      WHEN COALESCE((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin', false)
+       AND COUNT(DISTINCT pj.juri_id) = COUNT(DISTINCT j.id)
+      THEN SUM(pj.nilai_total)::INTEGER
       ELSE NULL
     END,
     COALESCE(array_agg(j.nama ORDER BY j.kode) FILTER (
@@ -200,7 +201,7 @@ RETURNS VOID AS $$
 DECLARE
   total_juri INTEGER;
   total_selesai INTEGER;
-  rata INTEGER;
+  jumlah INTEGER;
 BEGIN
   SELECT COUNT(DISTINCT j.id) INTO total_juri
   FROM public.pendaftar p
@@ -208,8 +209,8 @@ BEGIN
   JOIN public.juri j ON j.id = jk.juri_id AND j.aktif
   WHERE p.id = target_id;
 
-  SELECT COUNT(DISTINCT pj.juri_id), ROUND(AVG(pj.nilai_total))::INTEGER
-  INTO total_selesai, rata
+  SELECT COUNT(DISTINCT pj.juri_id), SUM(pj.nilai_total)::INTEGER
+  INTO total_selesai, jumlah
   FROM public.penilaian_juri pj
   JOIN public.pendaftar p ON p.id = pj.pendaftar_id
   JOIN public.juri j ON j.id = pj.juri_id AND j.aktif
@@ -219,7 +220,7 @@ BEGIN
 
   UPDATE public.pendaftar
   SET nilai_total = CASE
-    WHEN total_juri > 0 AND total_selesai = total_juri THEN rata
+    WHEN total_juri > 0 AND total_selesai = total_juri THEN jumlah
     ELSE NULL
   END
   WHERE id = target_id;

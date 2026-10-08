@@ -32,7 +32,6 @@ function DaftarFormContent() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [registeredData, setRegisteredData] = useState<any>(null);
     const [lombaCounts, setLombaCounts] = useState<Record<string, number>>({});
-    const [isLoadingCounts, setIsLoadingCounts] = useState(true);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Ambil kuota dan jumlah pendaftar real-time
@@ -50,7 +49,6 @@ function DaftarFormContent() {
                 });
                 setLombaCounts(counts);
             }
-            setIsLoadingCounts(false);
         };
 
         fetchCounts();

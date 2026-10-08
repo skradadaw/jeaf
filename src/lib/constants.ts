@@ -110,7 +110,7 @@ export const CABANG_LOMBA_LIST: CabangLombaConfig[] = [
     desc: 'Menumbuhkan keberanian dan bakat tarik suara anak dengan lagu-lagu anak ceria.',
     quota: 37, // Kuota ditambahkan 1 slot: 36 + 1 = 37 (Sisa 1 slot terbuka untuk pendaftaran)
     price: 'Gratis',
-    prefix: 'NYS',
+    prefix: 'NYA',
     progressHex: '#F59E0B',
     classes: {
       border: 'border-amber-200',

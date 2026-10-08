@@ -31,7 +31,7 @@ const playSound = (type: 'success' | 'error') => {
       oscillator.start();
       oscillator.stop(audioCtx.currentTime + 0.3);
     }
-  } catch (e) {
+  } catch {
     // Ignore if AudioContext is blocked by browser policies
   }
 };
@@ -95,7 +95,7 @@ export default function ScanPage() {
       setScannedData(userData);
       playSound('success');
 
-    } catch (err) {
+    } catch {
       setScanStatus('error');
       setErrorMessage('Terjadi kesalahan jaringan.');
     }

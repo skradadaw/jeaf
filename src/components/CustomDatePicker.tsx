@@ -64,7 +64,7 @@ export default function CustomDatePicker({
         setYearPage(Math.floor(currentYear / 12) * 12);
       }
     }
-  }, [isOpen]);
+  }, [currentYear, isOpen, value]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

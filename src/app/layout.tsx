@@ -29,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="id"
+      data-scroll-behavior="smooth"
       className={`${fredoka.variable} ${jakarta.variable} ${inter.variable} scroll-smooth`}
     >
       <head>

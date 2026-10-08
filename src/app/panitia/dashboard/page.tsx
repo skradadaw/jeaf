@@ -1,15 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
 import DashboardCard from '@/components/DashboardCard';
-import BadgeStatus from '@/components/BadgeStatus';
 import { supabase } from '@/lib/supabase';
-import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import { KUOTA_PER_CABANG, TOTAL_KUOTA_TARGET, CABANG_LOMBA_LIST } from '@/lib/constants';
+import { motion } from 'framer-motion';
+import { TOTAL_KUOTA_TARGET, CABANG_LOMBA_LIST } from '@/lib/constants';
 
 export default function DashboardPage() {
   const [registrations, setRegistrations] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
@@ -21,7 +18,6 @@ export default function DashboardPage() {
       if (!error && data) {
         setRegistrations(data);
       }
-      setLoading(false);
     }
     fetchData();
 
@@ -48,12 +44,6 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const getStatusType = (status: string) => {
-    if (status?.toLowerCase() === 'lunas') return 'lunas';
-    if (status?.toLowerCase() === 'batal') return 'batal';
-    return 'pending';
-  };
-
   const totalPendaftar = registrations.length;
   const targetPeserta = TOTAL_KUOTA_TARGET;
   const kuotaTersisa = Math.max(0, targetPeserta - totalPendaftar);
@@ -61,9 +51,6 @@ export default function DashboardPage() {
 
   const minatPPDB = registrations.filter(r => r.minat_sekolah === 'Berminat' || r.minat_sekolah === 'Ya, Berminat').length;
 
-  const hadirCount = registrations.filter(r => r.status_kehadiran === 'Hadir').length;
-  const persentaseHadir = totalPendaftar > 0 ? ((hadirCount / totalPendaftar) * 100).toFixed(1) : "0";
-  
   const CABANG_ICONS: Record<string, { icon: string; bg: string; text: string; bar: string }> = {
     'Adzan': { icon: 'fa-solid fa-volume-high', bg: 'bg-indigo-50 text-indigo-600', text: 'text-indigo-700', bar: 'bg-indigo-500' },
     'Fashion Show': { icon: 'fa-solid fa-vest-patches', bg: 'bg-rose-50 text-rose-600', text: 'text-rose-700', bar: 'bg-rose-500' },
@@ -72,19 +59,6 @@ export default function DashboardPage() {
     'Mewarnai': { icon: 'fa-solid fa-palette', bg: 'bg-amber-50 text-amber-600', text: 'text-amber-700', bar: 'bg-amber-500' },
     'Tendangan Penalti': { icon: 'fa-solid fa-futbol', bg: 'bg-sky-50 text-sky-600', text: 'text-sky-700', bar: 'bg-sky-500' },
     'Menyanyi Solo': { icon: 'fa-solid fa-microphone', bg: 'bg-purple-50 text-purple-600', text: 'text-purple-700', bar: 'bg-purple-500' },
-  };
-
-  const getCabangColor = (cabang: string) => {
-    switch (cabang) {
-      case 'Adzan': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      case 'Fashion Show': return 'bg-rose-50 text-rose-700 border-rose-200';
-      case 'MHQ': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'Karya Kolase': return 'bg-orange-50 text-orange-700 border-orange-200';
-      case 'Mewarnai': return 'bg-amber-50 text-amber-800 border-amber-200';
-      case 'Tendangan Penalti': return 'bg-sky-50 text-sky-700 border-sky-200';
-      case 'Menyanyi Solo': return 'bg-purple-50 text-purple-700 border-purple-200';
-      default: return 'bg-slate-50 text-slate-600 border-slate-200';
-    }
   };
 
   // Kalkulasi statistik kuota real-time tersinkronisasi penuh dengan landing page & form
@@ -97,31 +71,18 @@ export default function DashboardPage() {
     return { cabang, terisi, kuota, sisa, persentase };
   });
 
-  // Mengambil riwayat yang hadir, diurutkan berdasarkan waktu_kehadiran (jika ada) atau created_at
-  const riwayatKehadiran = [...registrations]
-    .filter(r => r.status_kehadiran === 'Hadir')
-    .sort((a, b) => {
-      const timeA = a.waktu_kehadiran ? new Date(a.waktu_kehadiran).getTime() : new Date(a.created_at).getTime();
-      const timeB = b.waktu_kehadiran ? new Date(b.waktu_kehadiran).getTime() : new Date(b.created_at).getTime();
-      return timeB - timeA; // Descending
-    })
-    .slice(0, 5);
-
   return (
     <div className="space-y-6">
       
       {/* Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <DashboardCard title="Total Pendaftar" value={totalPendaftar} icon="fa-user-group" color="sky" progress={Number(persentaseTarget)} trend={{ value: `${totalPendaftar}/${targetPeserta} Peserta`, isUp: true }} />
-        <DashboardCard title="Persentase Kehadiran" value={`${persentaseHadir}%`} icon="fa-qrcode" color="purple" progress={Number(persentaseHadir)} trend={{ value: `${hadirCount}/${totalPendaftar} Hadir`, isUp: true }} />
         <DashboardCard title="Kuota Tersisa" value={kuotaTersisa} icon="fa-ticket" color="amber" />
         <DashboardCard title="Minat PPDB SD Plus 3" value={minatPPDB} icon="fa-school" color="emerald" trend={{ value: 'Calon Siswa', isUp: true }} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Kuota Section */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl shadow-sm p-4 sm:p-6">
+      {/* Kuota Section */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 sm:mb-6">
             <h3 className="text-base sm:text-lg font-bold tracking-tight text-slate-900">Statistik Kuota Lomba</h3>
             <div className="text-xs sm:text-sm font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-3.5 py-1.5 sm:py-2 rounded-xl flex items-center gap-2 self-start sm:self-auto">
@@ -200,71 +161,6 @@ export default function DashboardPage() {
               );
             })}
           </div>
-        </div>
-
-        {/* Quick Stats / Info */}
-        <div className="space-y-6">
-
-
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-            <h3 className="text-base font-bold tracking-tight text-slate-900 mb-4 flex items-center gap-2">
-              <i className="fa-solid fa-clock-rotate-left text-slate-400"></i> Riwayat Kehadiran
-            </h3>
-            
-            <div className="space-y-3 overflow-hidden">
-              <AnimatePresence mode="popLayout" initial={false}>
-                {riwayatKehadiran.length === 0 ? (
-                  <motion.div 
-                    key="empty"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="text-center py-6 text-slate-500 text-sm"
-                  >
-                    Belum ada peserta yang hadir
-                  </motion.div>
-                ) : (
-                  riwayatKehadiran.map((reg) => (
-                    <motion.div 
-                      layout
-                      key={reg.id} 
-                      initial={{ opacity: 0, y: -20, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                      className="flex items-center justify-between p-3 rounded-xl border border-emerald-100 bg-emerald-50/50 hover:bg-emerald-50 transition-colors mb-3"
-                    >
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs shrink-0">
-                          <i className="fa-solid fa-check"></i>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm text-slate-800 truncate">{reg.nama_anak}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <p className="text-[11px] text-slate-500 font-mono">{reg.no_peserta || reg.id.split('-')[0].toUpperCase()}</p>
-                            <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${getCabangColor(reg.cabang_lomba)}`}>{reg.cabang_lomba}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {reg.waktu_kehadiran && (
-                        <div className="shrink-0 ml-3 text-right">
-                          <p className="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-2 py-1 rounded-lg shadow-sm">
-                            <i className="fa-regular fa-clock mr-1"></i>
-                            {new Date(reg.waktu_kehadiran).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                      )}
-                    </motion.div>
-                  ))
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-
-        </div>
-
       </div>
     </div>
   );

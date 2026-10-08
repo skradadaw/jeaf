@@ -57,8 +57,9 @@ BEGIN
     COUNT(DISTINCT j.id)::INTEGER,
     COUNT(DISTINCT pj.juri_id) FILTER (WHERE pj.status IN ('final','locked'))::INTEGER,
     CASE
-      WHEN COUNT(DISTINCT pj.juri_id) FILTER (WHERE pj.status IN ('final','locked')) = COUNT(DISTINCT j.id)
-      THEN ROUND(AVG(pj.nilai_total) FILTER (WHERE pj.status IN ('final','locked')))::INTEGER
+      WHEN COALESCE((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin', false)
+       AND COUNT(DISTINCT pj.juri_id) FILTER (WHERE pj.status IN ('final','locked')) = COUNT(DISTINCT j.id)
+      THEN (SUM(pj.nilai_total) FILTER (WHERE pj.status IN ('final','locked')))::INTEGER
       ELSE NULL
     END,
     COALESCE(array_agg(j.nama ORDER BY j.kode) FILTER (
@@ -168,15 +169,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 -- Fungsi tunggal untuk menghitung nilai akhir seorang peserta.
 CREATE OR REPLACE FUNCTION public.recalculate_nilai_peserta(target_id UUID)
 RETURNS VOID AS $$
-DECLARE total_juri INTEGER; total_selesai INTEGER; rata INTEGER;
+DECLARE total_juri INTEGER; total_selesai INTEGER; jumlah INTEGER;
 BEGIN
   SELECT COUNT(DISTINCT j.id) INTO total_juri
   FROM public.pendaftar p JOIN public.juri_kategori jk ON jk.cabang_lomba=p.cabang_lomba
   JOIN public.juri j ON j.id=jk.juri_id AND j.aktif WHERE p.id=target_id;
-  SELECT COUNT(DISTINCT pj.juri_id), ROUND(AVG(pj.nilai_total))::INTEGER INTO total_selesai, rata
+  SELECT COUNT(DISTINCT pj.juri_id), SUM(pj.nilai_total)::INTEGER INTO total_selesai, jumlah
   FROM public.penilaian_juri pj JOIN public.juri j ON j.id=pj.juri_id AND j.aktif
   WHERE pj.pendaftar_id=target_id AND pj.status IN ('final','locked');
-  UPDATE public.pendaftar SET nilai_total=CASE WHEN total_juri>0 AND total_selesai=total_juri THEN rata ELSE NULL END WHERE id=target_id;
+  UPDATE public.pendaftar SET nilai_total=CASE WHEN total_juri>0 AND total_selesai=total_juri THEN jumlah ELSE NULL END WHERE id=target_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path=public;
 

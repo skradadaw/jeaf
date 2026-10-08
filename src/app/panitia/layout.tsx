@@ -1,19 +1,79 @@
 'use client';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Link, { useLinkStatus } from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
+
+function MenuPendingIndicator() {
+  const { pending } = useLinkStatus();
+
+  return (
+    <span
+      className="ml-auto flex h-4 w-4 shrink-0 items-center justify-center"
+      aria-live="polite"
+      aria-label={pending ? 'Membuka halaman' : undefined}
+    >
+      {pending && (
+        <>
+          <i
+            className="route-loading-indicator fa-solid fa-circle-notch fa-spin text-[11px] text-purple-500"
+            aria-hidden="true"
+          ></i>
+          <span className="sr-only">Membuka halaman...</span>
+        </>
+      )}
+    </span>
+  );
+}
 
 export default function PanitiaLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isJuryMenuOpen, setIsJuryMenuOpen] = useState(() => pathname.startsWith('/panitia/penilaian'));
   const [accessMode, setAccessMode] = useState<string | null>(null);
   const [isAccessModeReady, setIsAccessModeReady] = useState(false);
 
   useEffect(() => {
-    setAccessMode(window.localStorage.getItem('jinga-access-mode'));
-    setIsAccessModeReady(true);
+    if (pathname === '/panitia/login' || pathname === '/panitia/juri-login') {
+      setAccessMode(null);
+      setIsAccessModeReady(true);
+      return;
+    }
+
+    let active = true;
+    if (!accessMode) setIsAccessModeReady(false);
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!active) return;
+      const user = data.user;
+      const isAdmin = user?.app_metadata?.role === 'admin';
+
+      if (!user) {
+        window.localStorage.removeItem('jinga-access-mode');
+        router.replace('/panitia/login');
+        return;
+      }
+
+      if (!pathname.startsWith('/panitia/penilaian') && !isAdmin) {
+        window.localStorage.setItem('jinga-access-mode', 'juri');
+        router.replace('/panitia/juri-login');
+        return;
+      }
+
+      const verifiedMode = isAdmin ? 'admin' : 'juri';
+      window.localStorage.setItem('jinga-access-mode', verifiedMode);
+      setAccessMode(verifiedMode);
+      setIsAccessModeReady(true);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [accessMode, pathname, router]);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
   }, [pathname]);
 
   // If they are on the login page, don't show the dashboard layout
@@ -21,8 +81,8 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
     return <>{children}</>;
   }
 
-  // Hindari pergantian layout admin/juri sesaat ketika localStorage belum dibaca.
-  if (pathname.startsWith('/panitia/penilaian') && !isAccessModeReady) {
+  // Jangan render area privat sebelum role sesi selesai diverifikasi.
+  if (!isAccessModeReady) {
     return (
       <div className="flex min-h-screen items-center justify-center overflow-hidden bg-slate-100 text-slate-500">
         <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-bold shadow-sm">
@@ -69,12 +129,14 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
   const menuItems = [
     { name: 'Dashboard', path: '/panitia/dashboard', icon: 'fa-chart-pie', color: 'text-sky-500' },
     { name: 'Data Peserta', path: '/panitia/peserta', icon: 'fa-users', color: 'text-amber-500' },
+    { name: 'Live Absensi', path: '/panitia/absensi', icon: 'fa-clipboard-user', color: 'text-emerald-500' },
     {
       name: 'Penilaian Juri',
       path: '/panitia/penilaian',
       icon: 'fa-star',
       color: 'text-purple-500',
       children: [
+        { name: 'Rekap Nilai Akhir', path: '/panitia/penilaian/hasil', icon: 'fa-ranking-star' },
         { name: 'MHQ', path: '/panitia/penilaian/mhq', icon: 'fa-book-quran' },
         { name: 'Adzan', path: '/panitia/penilaian/adzan', icon: 'fa-microphone' },
         { name: 'Menyanyi Solo', path: '/panitia/penilaian/menyanyi-solo', icon: 'fa-music' },
@@ -128,6 +190,7 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
                 ) : (
                   <Link href={item.path} className={menuClassName}>
                     {menuContent}
+                    <MenuPendingIndicator />
                   </Link>
                 )}
 
@@ -139,7 +202,8 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
                         <div key={child.path}>
                           <Link href={child.path} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${isChildActive ? 'bg-purple-50 text-purple-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
                             <i className={`fa-solid ${child.icon} w-4 text-center ${isChildActive ? 'text-purple-500' : 'text-slate-400'}`}></i>
-                            {child.name}
+                            <span className="flex-1">{child.name}</span>
+                            <MenuPendingIndicator />
                           </Link>
                         </div>
                       );
@@ -157,12 +221,14 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
                 <i className="fa-solid fa-user-pen"></i>
             </div>
             Login Juri
+            <MenuPendingIndicator />
           </Link>
           <Link href="/panitia/login" className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm text-rose-500 hover:bg-rose-50 transition-all">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center">
                 <i className="fa-solid fa-arrow-right-from-bracket"></i>
             </div>
             Keluar Panel
+            <MenuPendingIndicator />
           </Link>
         </div>
       </aside>
@@ -222,8 +288,9 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
                                             {menuContent}
                                         </button>
                                     ) : (
-                                        <Link href={item.path} onClick={() => setIsMobileMenuOpen(false)} className={menuClassName}>
+                                        <Link href={item.path} className={menuClassName}>
                                             {menuContent}
+                                            <MenuPendingIndicator />
                                         </Link>
                                     )}
 
@@ -233,9 +300,10 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
                                                 const isChildActive = pathname === child.path;
                                                 return (
                                                     <div key={child.path}>
-                                                        <Link href={child.path} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold ${isChildActive ? 'bg-purple-50 text-purple-700' : 'text-slate-500 active:bg-slate-50'}`}>
+                                                        <Link href={child.path} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold ${isChildActive ? 'bg-purple-50 text-purple-700' : 'text-slate-500 active:bg-slate-50'}`}>
                                                             <i className={`fa-solid ${child.icon} w-4 text-center ${isChildActive ? 'text-purple-500' : 'text-slate-400'}`}></i>
-                                                            {child.name}
+                                                            <span className="flex-1">{child.name}</span>
+                                                            <MenuPendingIndicator />
                                                         </Link>
                                                     </div>
                                                 );
@@ -246,17 +314,19 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
                             );
                         })}
                         <div className="h-px bg-slate-100 my-2"></div>
-                        <Link href="/panitia/juri-login" onClick={() => setIsMobileMenuOpen(false)} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-sm text-purple-600 active:bg-purple-50 transition-all">
+                        <Link href="/panitia/juri-login" className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-sm text-purple-600 active:bg-purple-50 transition-all">
                             <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center">
                                 <i className="fa-solid fa-user-pen"></i>
                             </div>
                             Login Juri
+                            <MenuPendingIndicator />
                         </Link>
-                        <Link href="/panitia/login" onClick={() => setIsMobileMenuOpen(false)} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-sm text-rose-500 active:bg-rose-50 transition-all">
+                        <Link href="/panitia/login" className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-sm text-rose-500 active:bg-rose-50 transition-all">
                             <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center">
                                 <i className="fa-solid fa-arrow-right-from-bracket"></i>
                             </div>
                             Keluar
+                            <MenuPendingIndicator />
                         </Link>
                     </nav>
                 </motion.div>
@@ -276,6 +346,7 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
                 <Link href="/panitia/scan" className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-600 hover:to-sky-600 text-white px-5 py-2.5 rounded-full font-bold text-sm shadow-md shadow-indigo-500/20 transition-all hover:-translate-y-0.5 group">
                     <i className="fa-solid fa-qrcode group-hover:scale-110 transition-transform"></i>
                     <span>Scan Tiket Cepat</span>
+                    <MenuPendingIndicator />
                 </Link>
                 <div className="w-10 h-10 rounded-full bg-sky-100 border-2 border-white shadow-sm flex items-center justify-center text-sky-600 font-bold overflow-hidden">
                     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" alt="Admin" className="w-full h-full object-cover" />
@@ -291,6 +362,7 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
                     <Link href="/panitia/scan" className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-600 hover:to-sky-600 text-white px-5 py-3.5 rounded-2xl font-bold text-sm shadow-[0_8px_16px_rgba(99,102,241,0.2)] transition-all active:scale-[0.98]">
                         <i className="fa-solid fa-qrcode text-lg"></i>
                         <span>Scan Tiket Cepat</span>
+                        <MenuPendingIndicator />
                     </Link>
                 </div>
             )}

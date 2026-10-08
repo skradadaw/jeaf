@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { exportPenilaianToExcel } from '@/lib/exportPenilaian';
+import CustomSelect from '@/components/CustomSelect';
 
 const categoryMap: Record<string, string> = {
     'adzan': 'Adzan',
@@ -76,6 +77,20 @@ type DashboardPayload = {
     juries: Juri[];
     participants: DashboardParticipant[];
 };
+
+const getParticipantSequence = (participantCode: string | null | undefined, fallback: number) => {
+    const sequence = participantCode?.match(/-(\d+)$/)?.[1];
+    return sequence ? Number.parseInt(sequence, 10) : fallback;
+};
+
+const sortParticipantsByCode = <T extends { no_peserta: string | null; created_at?: string }>(participants: T[]) =>
+    [...participants].sort((first, second) => {
+        const firstSequence = getParticipantSequence(first.no_peserta, Number.MAX_SAFE_INTEGER);
+        const secondSequence = getParticipantSequence(second.no_peserta, Number.MAX_SAFE_INTEGER);
+        return firstSequence - secondSequence
+            || (first.no_peserta || '').localeCompare(second.no_peserta || '')
+            || (first.created_at || '').localeCompare(second.created_at || '');
+    });
 
 const criteriaConfig: Record<string, CriteriaItem[]> = {
     'Adzan': [
@@ -220,13 +235,15 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                 setActiveCriteria(resolvedCriteria);
                 setJuriList(activeJudges);
                 setSelectedJuriId(previous => adminSession && activeJudges.some(juri => juri.id === previous) ? previous : authenticatedJuri.id);
-                setPesertaList((dashboard.participants || []).map((participant, index) => {
+                const orderedParticipants = sortParticipantsByCode(dashboard.participants || []);
+                setPesertaList(orderedParticipants.map((participant, index) => {
                     const initialKriteria = Object.fromEntries(resolvedCriteria.map(criteria => [criteria.id, 0]));
                     const lengkap = participant.jumlah_juri > 0 && participant.jumlah_selesai === participant.jumlah_juri;
+                    const participantCode = participant.no_peserta || participant.id.split('-')[0].toUpperCase();
                     return {
                         id: participant.id,
-                        nomor_urut: index + 1,
-                        no_peserta: participant.no_peserta || participant.id.split('-')[0].toUpperCase(),
+                        nomor_urut: getParticipantSequence(participantCode, index + 1),
+                        no_peserta: participantCode,
                         nama_lengkap: participant.nama_anak,
                         asal: participant.asal_sekolah,
                         kategori: participant.cabang_lomba,
@@ -318,7 +335,8 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
             if (controller.signal.aborted) return;
                 
             if (!error && data) {
-                const participantIds = data.map(p => p.id);
+                const orderedParticipants = sortParticipantsByCode(data);
+                const participantIds = orderedParticipants.map(p => p.id);
                 const [{ data: scoreRows, error: scoreError }, { data: summaries, error: summaryError }] = participantIds.length > 0
                     ? await Promise.all([supabase
                         .from('penilaian_juri')
@@ -335,7 +353,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                 const summaryMap = new Map(((summaries || []) as RingkasanNilai[]).map(item => [item.pendaftar_id, item]));
 
                 // Map the DB data to include local scoring state
-                const mapped = data.map((p, index) => {
+                const mapped = orderedParticipants.map((p, index) => {
                     const currentCriteria = resolvedCriteria;
                     const initialKriteria: Record<string, number> = {};
                     currentCriteria.forEach(c => initialKriteria[c.id] = 0);
@@ -343,12 +361,12 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                         .filter(score => score.pendaftar_id === p.id && activeJudges.some(juri => juri.id === score.juri_id));
                     const summary = summaryMap.get(p.id);
                     const lengkap = Boolean(summary && summary.jumlah_juri > 0 && summary.jumlah_selesai === summary.jumlah_juri);
+                    const participantCode = p.no_peserta || p.id.split('-')[0].toUpperCase();
                     
                     return {
                         id: p.id,
-                        // Nomor urut juri selalu dimulai dari 1 untuk setiap kategori.
-                        nomor_urut: index + 1,
-                        no_peserta: p.no_peserta || p.id.split('-')[0].toUpperCase(),
+                        nomor_urut: getParticipantSequence(participantCode, index + 1),
+                        no_peserta: participantCode,
                         nama_lengkap: p.nama_anak,
                         asal: p.asal_sekolah,
                         kategori: p.cabang_lomba,
@@ -809,16 +827,29 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                     </h2>
                     <p className="mt-1 hidden text-sm text-purple-100 sm:block">{isAdmin ? 'Pilih juri jika perlu memasukkan atau memperbaiki nilai atas nama juri tersebut.' : 'Identitas dan cabang lomba dipilih otomatis dari akun yang masuk.'}</p>
                 </div>
-                <div className="flex w-full items-center gap-3 rounded-xl border border-white/40 bg-white px-3 py-2.5 text-slate-800 shadow-lg shadow-indigo-950/10 md:w-auto md:min-w-80 md:rounded-2xl md:px-4 md:py-3">
+                <div className="flex w-full items-end gap-2.5 rounded-xl border border-white/40 bg-white px-3 py-2.5 text-slate-800 shadow-lg shadow-indigo-950/10 md:w-[23rem] md:rounded-2xl">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
                         <i className="fa-solid fa-id-card" aria-hidden="true"></i>
                     </span>
                     <span className="min-w-0 flex-1">
                         <span className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-400">{isAdmin ? 'Menilai sebagai' : 'Identitas Juri'}</span>
                         {isAdmin ? (
-                            <select value={selectedJuriId} onChange={(event) => setSelectedJuriId(event.target.value)} aria-label="Pilih juri untuk penilaian" className="mt-0.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm font-extrabold outline-none focus:border-purple-400">
-                                {juriList.map(juri => <option key={juri.id} value={juri.id}>{juri.nama} ({juri.kode})</option>)}
-                            </select>
+                            <div className="mt-1">
+                                <CustomSelect
+                                    value={selectedJuriId}
+                                    onChange={setSelectedJuriId}
+                                    options={juriList.map(juri => ({
+                                        value: juri.id,
+                                        label: juri.nama,
+                                        icon: 'fa-solid fa-user-tie',
+                                        color: 'bg-purple-100 text-purple-600',
+                                    }))}
+                                    ariaLabel="Pilih juri untuk penilaian"
+                                    accent="purple"
+                                    size="sm"
+                                    dropdownClassName="left-0 !w-full max-w-[calc(100vw-2rem)]"
+                                />
+                            </div>
                         ) : (
                             <><span className="block truncate text-sm font-extrabold">{juriList.find(juri => juri.id === selectedJuriId)?.nama || 'Memuat akun...'}</span><span className="block font-mono text-[10px] text-slate-400">{juriList.find(juri => juri.id === selectedJuriId)?.kode}</span></>
                         )}
@@ -897,7 +928,8 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                             const hasMyScore = Boolean(myScore);
                             const isComplete = peserta.status_nilai === 'Penilaian Lengkap';
                             const isWaiting = hasMyScore && !isComplete;
-                            const displayedScore = isComplete ? peserta.total_nilai : myScore?.nilai_total;
+                            const finalTotal = (peserta.nilai_juri as NilaiJuri[]).reduce((total, score) => total + Number(score.nilai_total), 0);
+                            const displayedScore = isAdmin && isComplete ? finalTotal : myScore?.nilai_total;
                             const displayedStatus = !hasMyScore
                                 ? 'Belum Anda nilai'
                                 : isComplete ? 'Penilaian Lengkap' : 'Menunggu juri lain';
@@ -920,7 +952,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                                         </div>
                                         {displayedScore !== null && displayedScore !== undefined && (
                                             <div className="shrink-0 text-right">
-                                                <p className="text-[9px] font-extrabold uppercase tracking-wide text-slate-400">{isComplete ? 'Nilai akhir' : juryScoreLabel}</p>
+                                                <p className="text-[9px] font-extrabold uppercase tracking-wide text-slate-400">{isAdmin && isComplete ? 'Jumlah nilai akhir' : juryScoreLabel}</p>
                                                 <p className="text-xl font-black leading-tight text-purple-700">{displayedScore}</p>
                                             </div>
                                         )}
@@ -1023,7 +1055,8 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                                                 {(() => {
                                                     const myScore = (peserta.nilai_juri as NilaiJuri[]).find(score => score.juri_id === selectedJuriId);
                                                     const isComplete = peserta.status_nilai === 'Penilaian Lengkap';
-                                                    const displayedScore = isComplete ? peserta.total_nilai : myScore?.nilai_total;
+                                                    const finalTotal = (peserta.nilai_juri as NilaiJuri[]).reduce((total, score) => total + Number(score.nilai_total), 0);
+                                                    const displayedScore = isAdmin && isComplete ? finalTotal : myScore?.nilai_total;
                                                     if (displayedScore === null || displayedScore === undefined) {
                                                         return <span className="font-medium text-slate-400">-</span>;
                                                     }
@@ -1032,7 +1065,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                                                             <span className="inline-flex h-10 min-w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 px-2 font-bold text-white shadow-sm">
                                                                 {displayedScore}
                                                             </span>
-                                                            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{isComplete ? 'Nilai akhir' : juryScoreLabel}</span>
+                                                            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{isAdmin && isComplete ? 'Jumlah nilai akhir' : juryScoreLabel}</span>
                                                         </div>
                                                     );
                                                 })()}
@@ -1349,7 +1382,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                             <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-100 text-purple-700"><i className="fa-solid fa-clipboard-check"></i></span>
                             <h3 className="mt-4 text-lg font-extrabold text-slate-900">Simpan penilaian?</h3>
                             <p className="mt-1 text-sm leading-relaxed text-slate-500">
-                                Nilai akhir peserta ini adalah <strong className="text-slate-800">{Math.round(activeCriteria.reduce((total, criterion) => total + ((tempNilai[criterion.id] || 0) * criterion.weight / 100), 0))}</strong>.
+                                Total nilai Anda untuk peserta ini adalah <strong className="text-slate-800">{Math.round(activeCriteria.reduce((total, criterion) => total + ((tempNilai[criterion.id] || 0) * criterion.weight / 100), 0))}</strong>.
                                 {activeCriteria.some(criterion => touchedCriteria.has(criterion.id) && tempNilai[criterion.id] === 0) && ' Terdapat kriteria bernilai 0, pastikan nilai tersebut memang benar.'}
                             </p>
                             <div className="mt-5 flex justify-end gap-2">

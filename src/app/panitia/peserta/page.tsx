@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import BadgeStatus from '@/components/BadgeStatus';
-import Link from 'next/link';
 import PesertaModal from '@/components/PesertaModal';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import { toast } from 'react-hot-toast';
 import CustomSelect from '@/components/CustomSelect';
+import { toast } from 'react-hot-toast';
 import { exportPesertaToExcel } from '@/lib/exportPeserta';
 import { CABANG_LOMBA_LIST } from '@/lib/constants';
 
@@ -144,31 +142,6 @@ export default function DataPesertaPage() {
   useEffect(() => {
     fetchRegistrations();
   }, []);
-
-  const toggleKehadiran = async (e: React.MouseEvent, id: string, currentStatus: string) => {
-    e.stopPropagation();
-    const newStatus = currentStatus === 'Hadir' ? 'Belum Hadir' : 'Hadir';
-    const newWaktu = newStatus === 'Hadir' ? new Date().toISOString() : null;
-    
-    // Optimistic update
-    setRegistrations(prev => 
-      prev.map(reg => reg.id === id ? { ...reg, status_kehadiran: newStatus, waktu_kehadiran: newWaktu } : reg)
-    );
-
-    const { error } = await supabase
-      .from('pendaftar')
-      .update({ status_kehadiran: newStatus, waktu_kehadiran: newWaktu })
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error updating status:', error);
-      toast.error('Gagal mengubah status kehadiran.');
-      // Revert if error
-      fetchRegistrations();
-    } else {
-      toast.success(`Status ${newStatus === 'Hadir' ? 'berhasil diabsen' : 'dibatalkan'}`);
-    }
-  };
 
   const deletePeserta = (e: React.MouseEvent, id: string, name: string) => {
     e.stopPropagation();
@@ -316,21 +289,20 @@ export default function DataPesertaPage() {
                 <th className="px-6 py-4">Asal Sekolah</th>
                 <th className="px-6 py-4">Cabang Lomba</th>
                 <th className="px-6 py-4">Kontak (WA)</th>
-                <th className="px-6 py-4">Kehadiran</th>
                 <th className="px-6 py-4 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/80">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center">
+                  <td colSpan={5} className="px-6 py-10 text-center">
                     <i className="fa-solid fa-circle-notch fa-spin text-3xl text-sky-500 mb-3"></i>
                     <p className="text-sm text-slate-500 font-medium">Memuat data peserta...</p>
                   </td>
                 </tr>
               ) : filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-500">
+                  <td colSpan={5} className="px-6 py-10 text-center text-slate-500">
                     <i className="fa-regular fa-folder-open text-4xl mb-3 text-slate-300"></i>
                     <p className="text-sm font-medium">Tidak ada data pendaftar yang cocok.</p>
                   </td>
@@ -436,28 +408,6 @@ export default function DataPesertaPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <button 
-                        onClick={(e) => toggleKehadiran(e, reg.id, reg.status_kehadiran)}
-                        className={`relative inline-flex items-center justify-center w-28 h-8 rounded-full transition-all border shadow-sm ${
-                          reg.status_kehadiran === 'Hadir' 
-                            ? 'bg-emerald-500 border-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-600' 
-                            : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'
-                        }`}
-                        title="Ubah status kehadiran"
-                      >
-                        <span className={`text-xs font-bold ${reg.status_kehadiran === 'Hadir' ? 'ml-3' : 'mr-3'}`}>
-                          {reg.status_kehadiran}
-                        </span>
-                        <div className={`absolute top-1 w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-sm transition-all duration-300 ${
-                          reg.status_kehadiran === 'Hadir' 
-                            ? 'left-1 text-emerald-500' 
-                            : 'right-1 text-slate-400 bg-slate-100'
-                        }`}>
-                          <i className={`fa-solid ${reg.status_kehadiran === 'Hadir' ? 'fa-check' : 'fa-minus'} text-[10px]`}></i>
-                        </div>
-                      </button>
-                    </td>
                     <td className="px-6 py-4 text-center">
                       <button 
                         onClick={(e) => deletePeserta(e, reg.id, reg.nama_anak)}
@@ -483,19 +433,18 @@ export default function DataPesertaPage() {
               </p>
               <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 pl-3 border-l border-slate-200">
                 <span>Baris:</span>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(Number(e.target.value));
+                <div className="w-20">
+                  <CustomSelect
+                    value={String(itemsPerPage)}
+                    onChange={(value) => {
+                    setItemsPerPage(Number(value));
                     setCurrentPage(1);
                   }}
-                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:border-sky-500 cursor-pointer transition-colors"
-                >
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
+                    options={[10, 25, 50, 100].map((count) => ({ value: String(count), label: String(count) }))}
+                    ariaLabel="Jumlah baris per halaman"
+                    size="sm"
+                  />
+                </div>
               </div>
             </div>
             

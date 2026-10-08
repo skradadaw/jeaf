@@ -58,7 +58,6 @@ const formatTanggalDaftar = (dateStr?: string | null) => {
 };
 
 export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess }: PesertaModalProps) {
-  const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'form' | 'card'>('form');
@@ -71,7 +70,6 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
         jenis_kelamin: peserta.jenis_kelamin || 'Laki-laki',
         minat_sekolah: normalizeMinat(peserta.minat_sekolah)
       });
-      setIsEditing(false);
       setActiveTab('form');
     }
   }, [peserta, isOpen]);
@@ -320,7 +318,7 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
                           document.body.removeChild(link);
                           window.URL.revokeObjectURL(url);
                           toast.success('Foto berhasil diunduh!', { id: toastId });
-                        } catch (err) {
+                        } catch {
                           toast.error('Gagal mengunduh foto peserta');
                         }
                       }}

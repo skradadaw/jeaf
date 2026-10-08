@@ -91,7 +91,7 @@ BEGIN
             WHEN 'Karya Kolase' THEN prefix := 'KLS';
             WHEN 'Mewarnai' THEN prefix := 'WAR';
             WHEN 'Tendangan Penalti' THEN prefix := 'PNL';
-            WHEN 'Menyanyi Solo' THEN prefix := 'NYS';
+            WHEN 'Menyanyi Solo' THEN prefix := 'NYA';
             ELSE prefix := 'JEA';
         END CASE;
 
@@ -211,12 +211,12 @@ JOIN (VALUES
 ) AS mapping(kode, cabang_lomba) ON mapping.kode = j.kode
 ON CONFLICT (juri_id, cabang_lomba) DO NOTHING;
 
--- Pertahankan kolom nilai lama sebagai ringkasan rata-rata nilai final semua juri.
+-- Pertahankan kolom nilai lama sebagai jumlah nilai final semua juri.
 CREATE OR REPLACE FUNCTION sync_nilai_akhir_peserta()
 RETURNS TRIGGER AS $$
 DECLARE
     target_pendaftar UUID;
-    nilai_rata_rata INTEGER;
+    jumlah_nilai INTEGER;
 BEGIN
     IF TG_OP = 'DELETE' THEN
         target_pendaftar := OLD.pendaftar_id;
@@ -224,13 +224,13 @@ BEGIN
         target_pendaftar := NEW.pendaftar_id;
     END IF;
 
-    SELECT ROUND(AVG(nilai_total))::INTEGER
-    INTO nilai_rata_rata
+    SELECT SUM(nilai_total)::INTEGER
+    INTO jumlah_nilai
     FROM public.penilaian_juri
     WHERE pendaftar_id = target_pendaftar AND status = 'final';
 
     UPDATE public.pendaftar
-    SET nilai_total = nilai_rata_rata
+    SET nilai_total = jumlah_nilai
     WHERE id = target_pendaftar;
 
     IF TG_OP = 'DELETE' THEN

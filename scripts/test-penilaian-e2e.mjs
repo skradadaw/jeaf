@@ -91,15 +91,15 @@ try {
       }
     }
 
-    const expectedAverage = Math.round(finalTotals.reduce((sum, value) => sum + value, 0) / finalTotals.length);
+    const expectedTotal = finalTotals.reduce((sum, value) => sum + value, 0);
     check = await service.from('pendaftar').select('nilai_total').eq('id', participant.id).single();
-    assert(check.data?.nilai_total === expectedAverage, `${category.name}: rata-rata nilai akhir tidak sesuai.`);
+    assert(check.data?.nilai_total === expectedTotal, `${category.name}: jumlah nilai akhir tidak sesuai.`);
 
     // Ringkasan aman harus lengkap.
     check = await judgeSessions[0].client.rpc('get_ringkasan_penilaian', { p_kategori: category.name });
     if (check.error) throw check.error;
     const summary = check.data.find((item) => item.pendaftar_id === participant.id);
-    assert(summary?.jumlah_selesai === category.codes.length && summary?.nilai_akhir === expectedAverage, `${category.name}: ringkasan tidak sesuai.`);
+    assert(summary?.jumlah_selesai === category.codes.length && summary?.nilai_akhir === expectedTotal, `${category.name}: ringkasan tidak sesuai.`);
 
     // Simulasi dua perangkat memakai version yang sama: penyimpanan kedua harus ditolak.
     const first = judgeSessions[0];
@@ -134,7 +134,7 @@ try {
       .eq('pendaftar_id', participant.id).eq('juri_id', first.judge.id);
     assert(!unlockedUpdate.error, `${category.name}: nilai tidak dapat diedit setelah disimpan.`);
 
-    results.push({ category: category.name, judges: category.codes.length, average: expectedAverage, status: 'LULUS' });
+    results.push({ category: category.name, judges: category.codes.length, total: expectedTotal, status: 'LULUS' });
   }
 
   const { count: auditCount, error: auditError } = await service.from('audit_penilaian_juri')

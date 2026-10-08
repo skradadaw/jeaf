@@ -95,6 +95,25 @@ body {
   scrollbar-width: none;
 }
 
+/* Tunda indikator navigasi agar perpindahan instan tidak menampilkan spinner sekilas. */
+.route-loading-indicator {
+  opacity: 0;
+  animation: route-loading-reveal 140ms ease-out 100ms forwards;
+}
+
+@keyframes route-loading-reveal {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-loading-indicator {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 /* Slider penilaian: tampilan stabil saat hover, fokus, dan drag. */
 .scoring-range {
   --slider-color: #7c3aed;

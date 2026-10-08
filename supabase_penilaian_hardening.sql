@@ -185,7 +185,7 @@ DECLARE
   target_pendaftar UUID := CASE WHEN TG_OP = 'DELETE' THEN OLD.pendaftar_id ELSE NEW.pendaftar_id END;
   total_juri INTEGER;
   total_selesai INTEGER;
-  nilai_rata_rata INTEGER;
+  jumlah_nilai INTEGER;
 BEGIN
   SELECT COUNT(DISTINCT j.id) INTO total_juri
   FROM public.pendaftar p
@@ -193,8 +193,8 @@ BEGIN
   JOIN public.juri j ON j.id = jk.juri_id AND j.aktif = true
   WHERE p.id = target_pendaftar;
 
-  SELECT COUNT(DISTINCT pj.juri_id), ROUND(AVG(pj.nilai_total))::INTEGER
-  INTO total_selesai, nilai_rata_rata
+  SELECT COUNT(DISTINCT pj.juri_id), SUM(pj.nilai_total)::INTEGER
+  INTO total_selesai, jumlah_nilai
   FROM public.penilaian_juri pj
   JOIN public.juri j ON j.id = pj.juri_id AND j.aktif = true
   JOIN public.pendaftar p ON p.id = pj.pendaftar_id
@@ -202,7 +202,7 @@ BEGIN
   WHERE pj.pendaftar_id = target_pendaftar AND pj.status IN ('final','locked');
 
   UPDATE public.pendaftar
-  SET nilai_total = CASE WHEN total_juri > 0 AND total_selesai = total_juri THEN nilai_rata_rata ELSE NULL END
+  SET nilai_total = CASE WHEN total_juri > 0 AND total_selesai = total_juri THEN jumlah_nilai ELSE NULL END
   WHERE id = target_pendaftar;
   RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
 END;
@@ -213,7 +213,7 @@ UPDATE public.pendaftar p SET nilai_total = (
   SELECT CASE WHEN COUNT(DISTINCT pj.juri_id) = (
     SELECT COUNT(DISTINCT j.id) FROM public.juri_kategori jk JOIN public.juri j ON j.id = jk.juri_id AND j.aktif
     WHERE jk.cabang_lomba = p.cabang_lomba
-  ) THEN ROUND(AVG(pj.nilai_total))::INTEGER ELSE NULL END
+  ) THEN SUM(pj.nilai_total)::INTEGER ELSE NULL END
   FROM public.penilaian_juri pj JOIN public.juri j ON j.id = pj.juri_id AND j.aktif
   WHERE pj.pendaftar_id = p.id AND pj.status IN ('final','locked')
 );

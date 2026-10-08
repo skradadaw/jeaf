@@ -110,7 +110,7 @@ DECLARE
   target_pendaftar UUID;
   total_juri INTEGER;
   total_selesai INTEGER;
-  nilai_rata_rata INTEGER;
+  jumlah_nilai INTEGER;
 BEGIN
   target_pendaftar := CASE WHEN TG_OP = 'DELETE' THEN OLD.pendaftar_id ELSE NEW.pendaftar_id END;
 
@@ -121,14 +121,14 @@ BEGIN
   JOIN public.juri j ON j.id = jk.juri_id AND j.aktif = true
   WHERE p.id = target_pendaftar;
 
-  SELECT COUNT(*), ROUND(AVG(pj.nilai_total))::INTEGER
-  INTO total_selesai, nilai_rata_rata
+  SELECT COUNT(*), SUM(pj.nilai_total)::INTEGER
+  INTO total_selesai, jumlah_nilai
   FROM public.penilaian_juri pj
   JOIN public.juri j ON j.id = pj.juri_id AND j.aktif = true
   WHERE pj.pendaftar_id = target_pendaftar AND pj.status = 'final';
 
   UPDATE public.pendaftar
-  SET nilai_total = CASE WHEN total_juri > 0 AND total_selesai = total_juri THEN nilai_rata_rata ELSE NULL END
+  SET nilai_total = CASE WHEN total_juri > 0 AND total_selesai = total_juri THEN jumlah_nilai ELSE NULL END
   WHERE id = target_pendaftar;
 
   RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
