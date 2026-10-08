@@ -50,6 +50,7 @@ Jika database lama masih mempunyai dua juri MHQ, jalankan `supabase_update_juri_
 | `supabase_penilaian_four_categories_fix.sql` | Membatasi portal juri ke empat kategori, memperbaiki ringkasan, audit, dan locking | Setelah hardening |
 | `supabase_remove_draft_lock.sql` | Menjadikan setiap simpan sebagai nilai final yang tetap dapat diedit | Langkah migrasi utama terakhir |
 | `supabase_penilaian_performance.sql` | Menambah RPC dashboard, pembaruan per peserta, indeks, dan Broadcast privat | Setelah migrasi penghapusan draft |
+| `supabase_reset_penilaian.sql` | Mereset seluruh nilai juri, log audit, dan mengosongkan nilai peserta | Kapan pun ingin mereset penilaian dari nol |
 | `supabase_fix_validasi_record_k.sql` | Hotfix historis untuk error `record "k" is not assigned yet` | Hanya instalasi lama yang belum menjalankan dua migrasi terakhir |
 
 ## Skrip yang tidak perlu dijalankan pada instalasi terkini
