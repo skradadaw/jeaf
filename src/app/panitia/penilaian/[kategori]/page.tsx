@@ -446,10 +446,24 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
     const [isMobileNotesOpen, setIsMobileNotesOpen] = useState(false);
     const sliderFrameRef = useRef<number | null>(null);
     const pendingSliderValueRef = useRef<{ criterionId: string; value: number } | null>(null);
+    const modalHistoryPushedRef = useRef(false);
+    const isClosingViaProgrammaticBackRef = useRef(false);
 
     const currentFormSnapshot = JSON.stringify({ nilai: tempNilai, catatan: tempCatatan });
     const hasUnsavedChanges = isModalOpen && currentFormSnapshot !== originalForm;
     const filledCriteriaCount = activeCriteria.filter(criterion => touchedCriteria.has(criterion.id)).length;
+
+    const isModalOpenRef = useRef(isModalOpen);
+    const hasUnsavedChangesRef = useRef(hasUnsavedChanges);
+    const showSaveConfirmRef = useRef(showSaveConfirm);
+    const showDiscardConfirmRef = useRef(showDiscardConfirm);
+
+    useEffect(() => {
+        isModalOpenRef.current = isModalOpen;
+        hasUnsavedChangesRef.current = hasUnsavedChanges;
+        showSaveConfirmRef.current = showSaveConfirm;
+        showDiscardConfirmRef.current = showDiscardConfirm;
+    }, [isModalOpen, hasUnsavedChanges, showSaveConfirm, showDiscardConfirm]);
 
     useEffect(() => {
         const warnBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -538,6 +552,11 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
         setIsMobileNotesOpen(Boolean(existingScore?.catatan));
         setOriginalForm(JSON.stringify({ nilai: startingValues, catatan: existingScore?.catatan || '' }));
         setIsModalOpen(true);
+
+        if (typeof window !== 'undefined' && !modalHistoryPushedRef.current) {
+            window.history.pushState({ modal: 'scoring' }, '', window.location.href);
+            modalHistoryPushedRef.current = true;
+        }
     };
 
     const markCriterionFilled = (criterionId: string) => {
@@ -604,13 +623,86 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
         setShowSaveConfirm(true);
     };
 
-    const requestCloseModal = () => {
-        if (hasUnsavedChanges) {
+    const dismissModal = useCallback(() => {
+        setIsModalOpen(false);
+        setShowDiscardConfirm(false);
+        setShowSaveConfirm(false);
+        if (modalHistoryPushedRef.current) {
+            modalHistoryPushedRef.current = false;
+            isClosingViaProgrammaticBackRef.current = true;
+            window.history.back();
+        }
+    }, []);
+
+    const requestCloseModal = useCallback(() => {
+        if (hasUnsavedChangesRef.current) {
             setShowDiscardConfirm(true);
             return;
         }
-        setIsModalOpen(false);
-    };
+        dismissModal();
+    }, [dismissModal]);
+
+    useEffect(() => {
+        const handlePopState = () => {
+            if (isClosingViaProgrammaticBackRef.current) {
+                isClosingViaProgrammaticBackRef.current = false;
+                return;
+            }
+
+            if (!isModalOpenRef.current) {
+                return;
+            }
+
+            // Browser sudah memundurkan history (pop) saat tombol back ditekan
+            modalHistoryPushedRef.current = false;
+
+            // 1. Jika konfirmasi simpan sedang terbuka, batalkan konfirmasi dan tetap di form
+            if (showSaveConfirmRef.current) {
+                setShowSaveConfirm(false);
+                window.history.pushState({ modal: 'scoring' }, '', window.location.href);
+                modalHistoryPushedRef.current = true;
+                return;
+            }
+
+            // 2. Jika konfirmasi buang perubahan sudah terbuka, back sekali lagi berarti setuju buang & tutup modal
+            if (showDiscardConfirmRef.current) {
+                setShowDiscardConfirm(false);
+                setIsModalOpen(false);
+                return;
+            }
+
+            // 3. Jika ada perubahan belum disimpan, buka dialog konfirmasi buang perubahan
+            if (hasUnsavedChangesRef.current) {
+                window.history.pushState({ modal: 'scoring' }, '', window.location.href);
+                modalHistoryPushedRef.current = true;
+                setShowDiscardConfirm(true);
+                return;
+            }
+
+            // 4. Jika tidak ada perubahan yang dibuat, langsung tutup modal kembali ke daftar peserta
+            setIsModalOpen(false);
+        };
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape' && isModalOpenRef.current) {
+                event.preventDefault();
+                if (showSaveConfirmRef.current) {
+                    setShowSaveConfirm(false);
+                } else if (showDiscardConfirmRef.current) {
+                    setShowDiscardConfirm(false);
+                } else {
+                    requestCloseModal();
+                }
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [requestCloseModal]);
 
     const handleLogoutJuri = async () => {
         await supabase.auth.signOut();
@@ -688,7 +780,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                     : 'Menunggu juri lain',
             };
         }));
-        setIsModalOpen(false);
+        dismissModal();
         void refreshParticipantStatus(activePeserta.id).then(updated => {
             // Database lama tetap berfungsi sampai migrasi performa dijalankan.
             if (!updated) setRefreshKey(value => value + 1);
@@ -1242,7 +1334,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                             <p className="mt-1 text-sm leading-relaxed text-slate-500">Nilai atau catatan yang baru diubah akan hilang jika form ditutup.</p>
                             <div className="mt-5 flex justify-end gap-2">
                                 <button type="button" onClick={() => setShowDiscardConfirm(false)} className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100">Lanjut Mengisi</button>
-                                <button type="button" onClick={() => { setShowDiscardConfirm(false); setIsModalOpen(false); }} className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-rose-700">Buang Perubahan</button>
+                                <button type="button" onClick={() => { dismissModal(); }} className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-rose-700">Buang Perubahan</button>
                             </div>
                         </motion.div>
                     </div>
