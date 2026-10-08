@@ -16,7 +16,8 @@ Jalankan berurutan:
 4. `supabase_penilaian_hardening.sql`
 5. `supabase_penilaian_four_categories_fix.sql`
 6. `supabase_remove_draft_lock.sql`
-7. Buat dan hubungkan akun juri mengikuti `JURI_LOGIN_SETUP.md`.
+7. `supabase_penilaian_performance.sql`
+8. Buat dan hubungkan akun juri mengikuti `JURI_LOGIN_SETUP.md`.
 
 `supabase_schema.sql` sudah memuat tabel dasar, storage peserta, sistem multi-juri, empat juri MHQ, dan dua juri untuk cabang lainnya. Karena itu, jangan menjalankan `supabase_multi_juri_migration.sql` atau `supabase_update_juri_mhq.sql` pada jalur ini.
 
@@ -31,7 +32,8 @@ Jalankan berurutan:
 5. `supabase_penilaian_hardening.sql`
 6. `supabase_penilaian_four_categories_fix.sql`
 7. `supabase_remove_draft_lock.sql`
-8. Buat dan hubungkan akun juri mengikuti `JURI_LOGIN_SETUP.md`.
+8. `supabase_penilaian_performance.sql`
+9. Buat dan hubungkan akun juri mengikuti `JURI_LOGIN_SETUP.md`.
 
 Jika database lama masih mempunyai dua juri MHQ, jalankan `supabase_update_juri_mhq.sql` setelah langkah 2. Skrip ini idempoten dan hanya menambahkan `MHQ-J3` serta `MHQ-J4` jika belum ada.
 
@@ -47,6 +49,7 @@ Jika database lama masih mempunyai dua juri MHQ, jalankan `supabase_update_juri_
 | `supabase_penilaian_hardening.sql` | Menambah kriteria, audit, validasi nilai, dan realtime | Setelah policy auth |
 | `supabase_penilaian_four_categories_fix.sql` | Membatasi portal juri ke empat kategori, memperbaiki ringkasan, audit, dan locking | Setelah hardening |
 | `supabase_remove_draft_lock.sql` | Menjadikan setiap simpan sebagai nilai final yang tetap dapat diedit | Langkah migrasi utama terakhir |
+| `supabase_penilaian_performance.sql` | Menambah RPC dashboard, pembaruan per peserta, indeks, dan Broadcast privat | Setelah migrasi penghapusan draft |
 | `supabase_fix_validasi_record_k.sql` | Hotfix historis untuk error `record "k" is not assigned yet` | Hanya instalasi lama yang belum menjalankan dua migrasi terakhir |
 
 ## Skrip yang tidak perlu dijalankan pada instalasi terkini

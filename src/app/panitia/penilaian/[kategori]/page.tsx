@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, use, useEffect, useRef } from 'react';
+import { useState, useMemo, use, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -47,6 +47,34 @@ type RingkasanNilai = {
     jumlah_selesai: number;
     nilai_akhir: number | null;
     juri_belum: string[];
+};
+
+type DashboardCriteria = {
+    kode: string;
+    label: string;
+    bobot: number;
+    nilai_maksimum: number;
+    urutan: number;
+};
+
+type DashboardParticipant = {
+    id: string;
+    created_at: string;
+    no_peserta: string | null;
+    nama_anak: string;
+    asal_sekolah: string;
+    cabang_lomba: string;
+    jumlah_juri: number;
+    jumlah_selesai: number;
+    nilai_akhir: number | null;
+    juri_belum: string[];
+    nilai_juri: NilaiJuri[];
+};
+
+type DashboardPayload = {
+    criteria: DashboardCriteria[];
+    juries: Juri[];
+    participants: DashboardParticipant[];
 };
 
 const criteriaConfig: Record<string, CriteriaItem[]> = {
@@ -128,12 +156,14 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
-    const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
     const [activeCriteria, setActiveCriteria] = useState<CriteriaItem[]>([]);
     const hasLoadedOnce = useRef(false);
     const realtimeDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pendingRealtimeParticipantIds = useRef<Set<string>>(new Set());
+    const recentlySavedParticipant = useRef<{ id: string; at: number } | null>(null);
     
     useEffect(() => {
+        const controller = new AbortController();
         const fetchPeserta = async () => {
             if (!hasLoadedOnce.current) setLoading(true);
             setDatabaseError('');
@@ -156,12 +186,74 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
             const adminSession = authenticatedUser.app_metadata?.role === 'admin';
             setIsAdmin(adminSession);
 
+            // Jalur utama setelah supabase_penilaian_performance.sql dipasang:
+            // seluruh data awal dashboard dimuat melalui satu request.
+            const { data: dashboardData, error: dashboardError } = await supabase
+                .rpc('get_dashboard_penilaian', { p_kategori: currentCategoryName })
+                .abortSignal(controller.signal);
+
+            if (controller.signal.aborted) return;
+            if (!dashboardError && dashboardData) {
+                const dashboard = dashboardData as unknown as DashboardPayload;
+                const presentationCriteria = criteriaConfig[currentCategoryName] || criteriaConfig.default;
+                const resolvedCriteria: CriteriaItem[] = (dashboard.criteria || []).map(row => {
+                    const presentation = presentationCriteria.find(item => item.id === row.kode);
+                    return {
+                        id: row.kode,
+                        label: row.label,
+                        weight: Number(row.bobot),
+                        icon: presentation?.icon || 'fa-star',
+                        indicator: presentation?.indicator || 'Berikan nilai sesuai penampilan peserta.',
+                    };
+                });
+                const activeJudges = (dashboard.juries || []) as Juri[];
+                const authenticatedJuri = adminSession
+                    ? activeJudges[0]
+                    : activeJudges.find(juri => juri.user_id === authenticatedUser.id);
+
+                if (!authenticatedJuri || resolvedCriteria.length === 0) {
+                    setDatabaseError('Akun, penugasan juri, atau kriteria penilaian belum lengkap.');
+                    setLoading(false);
+                    return;
+                }
+
+                setActiveCriteria(resolvedCriteria);
+                setJuriList(activeJudges);
+                setSelectedJuriId(previous => adminSession && activeJudges.some(juri => juri.id === previous) ? previous : authenticatedJuri.id);
+                setPesertaList((dashboard.participants || []).map((participant, index) => {
+                    const initialKriteria = Object.fromEntries(resolvedCriteria.map(criteria => [criteria.id, 0]));
+                    const lengkap = participant.jumlah_juri > 0 && participant.jumlah_selesai === participant.jumlah_juri;
+                    return {
+                        id: participant.id,
+                        nomor_urut: index + 1,
+                        no_peserta: participant.no_peserta || participant.id.split('-')[0].toUpperCase(),
+                        nama_lengkap: participant.nama_anak,
+                        asal: participant.asal_sekolah,
+                        kategori: participant.cabang_lomba,
+                        status_nilai: lengkap
+                            ? 'Penilaian Lengkap'
+                            : participant.jumlah_selesai > 0
+                                ? `Menunggu ${participant.juri_belum?.join(', ') || 'juri lain'}`
+                                : 'Belum Dinilai',
+                        total_nilai: lengkap ? participant.nilai_akhir : null,
+                        nilai_juri: participant.nilai_juri || [],
+                        initial_kriteria: initialKriteria,
+                    };
+                }));
+                hasLoadedOnce.current = true;
+                setLoading(false);
+                return;
+            }
+
+            // Fallback kompatibilitas untuk database yang belum menjalankan migrasi performa.
             const { data: criteriaRows, error: criteriaError } = await supabase
                 .from('kriteria_penilaian')
                 .select('kode, label, bobot, nilai_maksimum, urutan')
                 .eq('cabang_lomba', currentCategoryName)
                 .eq('aktif', true)
-                .order('urutan');
+                .order('urutan')
+                .abortSignal(controller.signal);
+            if (controller.signal.aborted) return;
             if (criteriaError || !criteriaRows?.length) {
                 setDatabaseError('Konfigurasi kriteria penilaian tidak dapat dimuat.');
                 setLoading(false);
@@ -183,7 +275,9 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
             const { data: assignments, error: assignmentError } = await supabase
                 .from('juri_kategori')
                 .select('juri_id')
-                .eq('cabang_lomba', currentCategoryName);
+                .eq('cabang_lomba', currentCategoryName)
+                .abortSignal(controller.signal);
+            if (controller.signal.aborted) return;
 
             if (assignmentError) {
                 setDatabaseError('Tabel multi-juri belum tersedia. Jalankan pembaruan supabase_schema.sql di Supabase SQL Editor.');
@@ -195,8 +289,9 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
 
             const juriIds = assignments?.map(item => item.juri_id) || [];
             const { data: judges, error: judgesError } = juriIds.length > 0
-                ? await supabase.from('juri').select('id, kode, nama, user_id').in('id', juriIds).eq('aktif', true).order('kode')
+                ? await supabase.from('juri').select('id, kode, nama, user_id').in('id', juriIds).eq('aktif', true).order('kode').abortSignal(controller.signal)
                 : { data: [], error: null };
+            if (controller.signal.aborted) return;
 
             if (judgesError) {
                 setDatabaseError('Data juri gagal dimuat: ' + judgesError.message);
@@ -216,9 +311,11 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
 
             const { data, error } = await supabase
                 .from('pendaftar')
-                .select('*')
+                .select('id, created_at, no_peserta, nama_anak, asal_sekolah, cabang_lomba, nilai_total')
                 .eq('cabang_lomba', currentCategoryName)
-                .order('created_at', { ascending: true });
+                .order('created_at', { ascending: true })
+                .abortSignal(controller.signal);
+            if (controller.signal.aborted) return;
                 
             if (!error && data) {
                 const participantIds = data.map(p => p.id);
@@ -226,8 +323,11 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                     ? await Promise.all([supabase
                         .from('penilaian_juri')
                         .select('id, pendaftar_id, juri_id, detail_nilai, nilai_total, catatan, version')
-                        .in('pendaftar_id', participantIds), supabase.rpc('get_ringkasan_penilaian', { p_kategori: currentCategoryName })])
+                        .in('pendaftar_id', participantIds)
+                        .abortSignal(controller.signal), supabase.rpc('get_ringkasan_penilaian', { p_kategori: currentCategoryName }).abortSignal(controller.signal)])
                     : [{ data: [], error: null }, { data: [], error: null }];
+
+                if (controller.signal.aborted) return;
 
                 if (scoreError || summaryError) {
                     setDatabaseError('Nilai juri gagal dimuat: ' + (scoreError?.message || summaryError?.message));
@@ -263,7 +363,6 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                     };
                 });
                 setPesertaList(mapped);
-                setLastSyncedAt(new Date());
                 hasLoadedOnce.current = true;
             } else if (error) {
                 setDatabaseError('Data peserta gagal dimuat: ' + error.message);
@@ -276,29 +375,63 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
         } else {
             setLoading(false);
         }
+        return () => controller.abort();
     }, [currentCategoryName, router, refreshKey]);
 
+    const refreshParticipantStatus = useCallback(async (participantId: string) => {
+        const { data, error } = await supabase.rpc('get_status_penilaian_peserta', {
+            p_pendaftar_id: participantId,
+        });
+        if (error || !data) return false;
+
+        const participant = data as unknown as DashboardParticipant;
+        const complete = participant.jumlah_juri > 0 && participant.jumlah_selesai === participant.jumlah_juri;
+        setPesertaList(previous => previous.map(current => current.id === participantId
+            ? {
+                ...current,
+                status_nilai: complete
+                    ? 'Penilaian Lengkap'
+                    : participant.jumlah_selesai > 0
+                        ? `Menunggu ${participant.juri_belum?.join(', ') || 'juri lain'}`
+                        : 'Belum Dinilai',
+                total_nilai: complete ? participant.nilai_akhir : null,
+                nilai_juri: participant.nilai_juri || current.nilai_juri,
+            }
+            : current));
+        return true;
+    }, []);
+
     useEffect(() => {
+        const pendingParticipantIds = pendingRealtimeParticipantIds.current;
+        void supabase.realtime.setAuth();
         const channel = supabase
-            .channel(`penilaian-${unwrappedParams.kategori}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'penilaian_juri' }, () => {
+            .channel(`penilaian:${currentCategoryName}`, { config: { private: true } })
+            .on('broadcast', { event: 'score_changed' }, ({ payload }) => {
+                const participantId = typeof payload?.pendaftar_id === 'string' ? payload.pendaftar_id : '';
+                if (!participantId) return;
+                const recentSave = recentlySavedParticipant.current;
+                if (recentSave && recentSave.id === participantId && Date.now() - recentSave.at < 2000) return;
+                pendingParticipantIds.add(participantId);
                 if (realtimeDebounce.current) clearTimeout(realtimeDebounce.current);
-                realtimeDebounce.current = setTimeout(() => setRefreshKey(value => value + 1), 300);
+                realtimeDebounce.current = setTimeout(() => {
+                    const participantIds = Array.from(pendingParticipantIds);
+                    pendingParticipantIds.clear();
+                    void Promise.all(participantIds.map(refreshParticipantStatus));
+                }, 200);
             })
             .subscribe();
         const handleFocus = () => setRefreshKey(value => value + 1);
-        const fallbackPolling = window.setInterval(() => setRefreshKey(value => value + 1), 10000);
         window.addEventListener('focus', handleFocus);
         return () => {
             window.removeEventListener('focus', handleFocus);
-            window.clearInterval(fallbackPolling);
             if (realtimeDebounce.current) clearTimeout(realtimeDebounce.current);
+            pendingParticipantIds.clear();
             void supabase.removeChannel(channel);
         };
-    }, [unwrappedParams.kategori]);
+    }, [currentCategoryName, refreshParticipantStatus]);
     
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterStatus, setFilterStatus] = useState('Semua Status');
+    const [filterStatus, setFilterStatus] = useState('Belum Dinilai');
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activePeserta, setActivePeserta] = useState<any>(null);
@@ -362,32 +495,32 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
 
     // --- Filtering ---
     const filteredPeserta = useMemo(() => {
-        const filtered = pesertaList.filter(p => {
+        return pesertaList.filter(p => {
             const normalizedQuery = searchQuery.toLowerCase();
+            const hasMyScore = (p.nilai_juri as NilaiJuri[]).some(score => score.juri_id === selectedJuriId);
+            const isWaitingForOthers = hasMyScore && p.status_nilai !== 'Penilaian Lengkap';
             const matchSearch = p.nama_lengkap.toLowerCase().includes(normalizedQuery)
                 || p.no_peserta.toLowerCase().includes(normalizedQuery)
                 || String(p.nomor_urut).includes(normalizedQuery);
-            const matchStatus = filterStatus === 'Semua Status'
-                || (filterStatus === 'Belum Dinilai' && p.status_nilai === 'Belum Dinilai')
-                || (filterStatus === 'Dalam Proses' && p.status_nilai.startsWith('Menunggu'))
-                || (filterStatus === 'Lengkap' && p.status_nilai === 'Penilaian Lengkap');
+            const matchStatus = (filterStatus === 'Belum Dinilai' && !hasMyScore)
+                || (filterStatus === 'Sudah Dinilai' && hasMyScore)
+                || (filterStatus === 'Menunggu Juri Lain' && isWaitingForOthers);
             return matchSearch && matchStatus;
         });
-
-        // Setelah pencarian/filter diterapkan, nomor urut yang terlihat tetap dimulai dari 1.
-        return filtered.map((peserta, index) => ({
-            ...peserta,
-            nomor_urut: index + 1,
-        }));
-    }, [pesertaList, searchQuery, filterStatus]);
+    }, [pesertaList, searchQuery, filterStatus, selectedJuriId]);
 
     // --- Stats ---
-    const stats = useMemo(() => {
-        const total = pesertaList.length;
-        const dinilai = pesertaList.filter(p => p.status_nilai === 'Penilaian Lengkap').length;
-        const belum = total - dinilai;
-        return { total, dinilai, belum };
-    }, [pesertaList]);
+    const stats = useMemo(() => ({ total: pesertaList.length }), [pesertaList]);
+    const filterTabs = useMemo(() => {
+        const scoredByMe = pesertaList.filter(p =>
+            (p.nilai_juri as NilaiJuri[]).some(score => score.juri_id === selectedJuriId)
+        );
+        return [
+            { label: 'Belum Dinilai', count: pesertaList.length - scoredByMe.length },
+            { label: 'Sudah Dinilai', count: scoredByMe.length },
+            { label: 'Menunggu Juri Lain', count: scoredByMe.filter(p => p.status_nilai !== 'Penilaian Lengkap').length },
+        ];
+    }, [pesertaList, selectedJuriId]);
 
     // --- Handlers ---
     const openScoringModal = (peserta: any) => {
@@ -529,9 +662,8 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
         const scorePayload = {
             pendaftar_id: activePeserta.id,
             ...savedScore,
-            updated_at: new Date().toISOString(),
         };
-        const { error } = existingScore
+        const { data: savedRow, error } = existingScore
             ? await supabase.from('penilaian_juri').update(scorePayload)
                 .eq('id', existingScore.id).eq('version', existingScore.version).select('id').single()
             : await supabase.from('penilaian_juri').insert(scorePayload).select('id').single();
@@ -544,9 +676,28 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
         
         setIsSaving(false);
         setOriginalForm(JSON.stringify({ nilai: tempNilai, catatan: tempCatatan }));
+        recentlySavedParticipant.current = { id: activePeserta.id, at: Date.now() };
+        setPesertaList(previous => previous.map(peserta => {
+            if (peserta.id !== activePeserta.id) return peserta;
+            const scores = (peserta.nilai_juri as NilaiJuri[]).filter(score => score.juri_id !== selectedJuriId);
+            return {
+                ...peserta,
+                nilai_juri: [...scores, { ...savedScore, id: savedRow?.id ?? existingScore?.id }],
+                status_nilai: peserta.status_nilai === 'Penilaian Lengkap'
+                    ? peserta.status_nilai
+                    : 'Menunggu juri lain',
+            };
+        }));
         setIsModalOpen(false);
-        setRefreshKey(value => value + 1);
+        void refreshParticipantStatus(activePeserta.id).then(updated => {
+            // Database lama tetap berfungsi sampai migrasi performa dijalankan.
+            if (!updated) setRefreshKey(value => value + 1);
+        });
     };
+
+    const selectedJuri = juriList.find(juri => juri.id === selectedJuriId);
+    const selectedJuriNumber = selectedJuri?.kode.match(/J(\d+)$/)?.[1];
+    const juryScoreLabel = selectedJuriNumber ? `Nilai Juri ${selectedJuriNumber}` : 'Nilai Juri';
 
     return (
         <div className="space-y-4 md:space-y-6">
@@ -587,66 +738,36 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-3 gap-2 md:hidden">
-                <div className="rounded-2xl border border-purple-100 bg-purple-50 p-3 text-center">
-                    <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-white text-sm text-purple-600 shadow-sm"><i className="fa-solid fa-users" aria-hidden="true"></i></span>
-                    <p className="mt-2 text-2xl font-black leading-none text-slate-900">{stats.total}</p>
-                    <p className="mt-1 text-[10px] font-bold text-slate-500">Peserta</p>
+            {/* Ringkasan peserta */}
+            <div className="flex items-center gap-3 rounded-2xl border border-purple-100 bg-white p-3 shadow-sm md:max-w-sm md:p-4">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-600 md:h-12 md:w-12 md:text-lg">
+                    <i className="fa-solid fa-users" aria-hidden="true"></i>
+                </span>
+                <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Jumlah Peserta</p>
+                    <p className="truncate text-sm font-bold text-slate-600">{currentCategoryName}</p>
                 </div>
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-center">
-                    <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-white text-sm text-emerald-600 shadow-sm"><i className="fa-solid fa-check" aria-hidden="true"></i></span>
-                    <p className="mt-2 text-2xl font-black leading-none text-slate-900">{stats.dinilai}</p>
-                    <p className="mt-1 text-[10px] font-bold text-slate-500">Lengkap</p>
-                </div>
-                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-center">
-                    <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-white text-sm text-amber-600 shadow-sm"><i className="fa-solid fa-hourglass-half" aria-hidden="true"></i></span>
-                    <p className="mt-2 text-2xl font-black leading-none text-slate-900">{stats.belum}</p>
-                    <p className="mt-1 text-[10px] font-bold text-slate-500">Belum</p>
-                </div>
-            </div>
-            <div className="hidden grid-cols-3 gap-4 md:grid">
-                <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-purple-100 rounded-bl-full -z-10 group-hover:scale-110 transition-transform"></div>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-semibold text-slate-500 mb-1">Total Peserta ({currentCategoryName})</p>
-                            <h3 className="text-3xl font-bold text-slate-800">{stats.total}</h3>
-                        </div>
-                        <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 text-xl">
-                            <i className="fa-solid fa-users"></i>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-100 rounded-bl-full -z-10 group-hover:scale-110 transition-transform"></div>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-semibold text-slate-500 mb-1">Penilaian Lengkap</p>
-                            <h3 className="text-3xl font-bold text-slate-800">{stats.dinilai}</h3>
-                        </div>
-                        <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 text-xl">
-                            <i className="fa-solid fa-clipboard-check"></i>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-rose-100 rounded-bl-full -z-10 group-hover:scale-110 transition-transform"></div>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-semibold text-slate-500 mb-1">Belum Lengkap</p>
-                            <h3 className="text-3xl font-bold text-slate-800">{stats.belum}</h3>
-                        </div>
-                        <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600 text-xl">
-                            <i className="fa-solid fa-hourglass-half"></i>
-                        </div>
-                    </div>
-                </div>
+                <p className="text-3xl font-black leading-none text-slate-900">{stats.total}</p>
             </div>
 
             {/* Filters Area */}
             <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-slate-200/60 bg-white p-3 shadow-sm md:flex-row md:gap-4 md:p-4">
-                <div className="flex w-full flex-col sm:flex-row gap-2 md:w-auto">
+                <div className="grid w-full grid-cols-3 rounded-xl bg-slate-100 p-1 md:flex md:w-auto" role="tablist" aria-label="Filter status penilaian">
+                    {filterTabs.map(tab => (
+                        <button
+                            key={tab.label}
+                            type="button"
+                            role="tab"
+                            aria-selected={filterStatus === tab.label}
+                            onClick={() => setFilterStatus(tab.label)}
+                            className={`min-h-11 rounded-lg px-1.5 py-2 text-[10px] font-bold leading-tight transition-colors md:min-h-0 md:flex-none md:px-4 md:text-xs ${filterStatus === tab.label ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-500 active:text-slate-700 md:hover:text-slate-700'}`}
+                        >
+                            <span className="block">{tab.label}</span>
+                            <span className={`mt-0.5 block text-[9px] ${filterStatus === tab.label ? 'text-purple-500' : 'text-slate-400'}`}>{tab.count} peserta</span>
+                        </button>
+                    ))}
+                </div>
+                <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
                     <div className="relative w-full md:w-80">
                         <i className="fa-solid fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                         <input
@@ -662,28 +783,11 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                             </button>
                         )}
                     </div>
-                    <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
-                        <span className="text-[10px] font-semibold text-slate-400">
-                            <i className="fa-solid fa-arrows-rotate mr-1 text-emerald-500"></i>
-                            {lastSyncedAt ? `Sinkron ${lastSyncedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` : 'Menyinkronkan...'}
-                        </span>
-                        {isAdmin && (
-                            <button onClick={() => handleExportExcel(unwrappedParams.kategori)} className="flex min-h-11 shrink-0 touch-manipulation items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-500/20 transition-all active:from-emerald-600 active:to-teal-600 md:px-5 md:text-sm md:hover:from-emerald-600 md:hover:to-teal-600">
-                                <i className="fa-solid fa-file-excel"></i> Export Excel
-                            </button>
-                        )}
-                    </div>
-                </div>
-                <div className="grid w-full grid-cols-4 rounded-xl bg-slate-100 p-1 md:flex md:w-auto">
-                    {['Semua Status', 'Belum Dinilai', 'Dalam Proses', 'Lengkap'].map(status => (
-                        <button
-                            key={status}
-                            onClick={() => setFilterStatus(status)}
-                            className={`min-h-10 rounded-lg px-1.5 py-2 text-[10px] font-bold leading-tight transition-all md:min-h-0 md:flex-none md:px-4 md:text-xs ${filterStatus === status ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 active:text-slate-700 md:hover:text-slate-700'}`}
-                        >
-                            {status}
+                    {isAdmin && (
+                        <button onClick={() => handleExportExcel(unwrappedParams.kategori)} className="flex min-h-11 shrink-0 touch-manipulation items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-500/20 transition-all active:from-emerald-600 active:to-teal-600 md:px-5 md:text-sm md:hover:from-emerald-600 md:hover:to-teal-600">
+                            <i className="fa-solid fa-file-excel"></i> Export Excel
                         </button>
-                    ))}
+                    )}
                 </div>
             </div>
 
@@ -697,9 +801,14 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                 ) : filteredPeserta.length > 0 ? (
                     <AnimatePresence>
                         {filteredPeserta.map((peserta, index) => {
-                            const hasMyScore = (peserta.nilai_juri as NilaiJuri[]).some(score => score.juri_id === selectedJuriId);
+                            const myScore = (peserta.nilai_juri as NilaiJuri[]).find(score => score.juri_id === selectedJuriId);
+                            const hasMyScore = Boolean(myScore);
                             const isComplete = peserta.status_nilai === 'Penilaian Lengkap';
-                            const isWaiting = peserta.status_nilai.startsWith('Menunggu');
+                            const isWaiting = hasMyScore && !isComplete;
+                            const displayedScore = isComplete ? peserta.total_nilai : myScore?.nilai_total;
+                            const displayedStatus = !hasMyScore
+                                ? 'Belum Anda nilai'
+                                : isComplete ? 'Penilaian Lengkap' : 'Menunggu juri lain';
                             return (
                                 <motion.article
                                     key={peserta.id}
@@ -717,10 +826,10 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                                                 <h3 className="truncate text-sm font-extrabold text-slate-900">{peserta.nama_lengkap}</h3>
                                             </div>
                                         </div>
-                                        {peserta.total_nilai !== null && (
+                                        {displayedScore !== null && displayedScore !== undefined && (
                                             <div className="shrink-0 text-right">
-                                                <p className="text-[9px] font-extrabold uppercase tracking-wide text-slate-400">Nilai akhir</p>
-                                                <p className="text-xl font-black leading-tight text-purple-700">{peserta.total_nilai}</p>
+                                                <p className="text-[9px] font-extrabold uppercase tracking-wide text-slate-400">{isComplete ? 'Nilai akhir' : juryScoreLabel}</p>
+                                                <p className="text-xl font-black leading-tight text-purple-700">{displayedScore}</p>
                                             </div>
                                         )}
                                     </div>
@@ -728,7 +837,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                                     <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
                                         <span className={`inline-flex min-w-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold ${isComplete ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : isWaiting ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-rose-200 bg-rose-50 text-rose-600'}`}>
                                             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isComplete ? 'bg-emerald-500' : isWaiting ? 'bg-amber-500' : 'bg-rose-500'}`}></span>
-                                            <span className="truncate">{peserta.status_nilai}</span>
+                                            <span className="truncate">{displayedStatus}</span>
                                         </span>
                                         <button type="button" onClick={() => openScoringModal(peserta)} className="inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 text-xs font-extrabold text-white shadow-md shadow-purple-500/20 active:bg-purple-700">
                                             <i className={`fa-solid ${hasMyScore ? 'fa-pen-to-square' : 'fa-star'}`} aria-hidden="true"></i>
@@ -743,7 +852,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                     <div className="rounded-2xl border border-slate-200 bg-white px-4 py-12 text-center shadow-sm">
                         <i className="fa-solid fa-folder-open text-4xl text-slate-300" aria-hidden="true"></i>
                         <p className="mt-3 text-sm font-semibold text-slate-500">Tidak ada peserta yang sesuai.</p>
-                        {(searchQuery || filterStatus !== 'Semua Status') && <p className="mt-1 text-xs text-slate-400">Coba ubah pencarian atau filter status.</p>}
+                        <p className="mt-1 text-xs text-slate-400">Coba pencarian lain atau pilih tab berbeda.</p>
                     </div>
                 )}
                 {!loading && filteredPeserta.length > 0 && <p className="pb-1 text-center text-xs font-semibold text-slate-400">Menampilkan {filteredPeserta.length} peserta</p>}
@@ -758,7 +867,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                                 <th className="px-6 py-4 font-bold">No. Urut &amp; Kode Peserta</th>
                                 <th className="px-6 py-4 font-bold">Informasi Peserta</th>
                                 <th className="px-6 py-4 font-bold text-center">Status</th>
-                                <th className="px-6 py-4 font-bold text-center">Nilai Akhir</th>
+                                <th className="px-6 py-4 font-bold text-center">Nilai</th>
                                 <th className="px-6 py-4 font-bold text-right">Aksi</th>
                             </tr>
                         </thead>
@@ -801,31 +910,40 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                {peserta.status_nilai === 'Penilaian Lengkap' ? (
+                                                {!(peserta.nilai_juri as NilaiJuri[]).some(score => score.juri_id === selectedJuriId) ? (
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200/50 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                                                        Belum Anda nilai
+                                                    </span>
+                                                ) : peserta.status_nilai === 'Penilaian Lengkap' ? (
                                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200/50">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                                         Penilaian Lengkap
                                                     </span>
-                                                ) : peserta.status_nilai.startsWith('Menunggu') ? (
+                                                ) : (
                                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200/50">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                                                        {peserta.status_nilai}
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200/50">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                                                        Belum Dinilai
+                                                        Menunggu juri lain
                                                     </span>
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                {peserta.total_nilai !== null ? (
-                                                    <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 text-white font-bold shadow-sm">
-                                                        {peserta.total_nilai}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-slate-400 font-medium">-</span>
-                                                )}
+                                                {(() => {
+                                                    const myScore = (peserta.nilai_juri as NilaiJuri[]).find(score => score.juri_id === selectedJuriId);
+                                                    const isComplete = peserta.status_nilai === 'Penilaian Lengkap';
+                                                    const displayedScore = isComplete ? peserta.total_nilai : myScore?.nilai_total;
+                                                    if (displayedScore === null || displayedScore === undefined) {
+                                                        return <span className="font-medium text-slate-400">-</span>;
+                                                    }
+                                                    return (
+                                                        <div className="inline-flex flex-col items-center gap-1">
+                                                            <span className="inline-flex h-10 min-w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 px-2 font-bold text-white shadow-sm">
+                                                                {displayedScore}
+                                                            </span>
+                                                            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{isComplete ? 'Nilai akhir' : juryScoreLabel}</span>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right">
                                                 <button 
@@ -947,7 +1065,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                                     ) : (
                                         <div className="flex items-start gap-2.5 rounded-xl border border-purple-100 bg-purple-50/70 px-3 py-2.5 text-[13px] leading-[18px] text-slate-600 sm:items-center sm:py-2 sm:text-xs">
                                             <i className="fa-solid fa-circle-info text-purple-500" aria-hidden="true"></i>
-                                            <p>Isi nilai setiap kriteria dengan menggeser slider atau mengetik angka. Total dihitung otomatis sesuai bobot.</p>
+                                            <p>Geser slider atau ketik nilai. Total dihitung otomatis.</p>
                                         </div>
                                     )}
 
@@ -973,7 +1091,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                                                         </span>
                                                         <div className="min-w-0 flex-1">
                                                             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 sm:flex-nowrap sm:justify-between sm:gap-2">
-                                                                <label htmlFor={`nilai-${c.id}`} className="text-sm font-semibold leading-[18px] text-slate-900 sm:text-[13px] sm:font-extrabold sm:leading-tight sm:text-slate-800">{c.label}</label>
+                                                                <label htmlFor={`nilai-${c.id}`} className="text-[13px] font-extrabold uppercase leading-[18px] tracking-[0.025em] text-slate-900 sm:text-xs sm:leading-tight">{c.label}</label>
                                                                 <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase sm:rounded-md sm:font-extrabold ${accent.soft} ${accent.text}`}>Bobot {c.weight}%</span>
                                                                 {isMissing && <span className="shrink-0 rounded bg-rose-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-rose-600 sm:hidden">Belum diisi</span>}
                                                             </div>
