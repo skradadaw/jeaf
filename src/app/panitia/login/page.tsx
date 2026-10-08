@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function PanitiaLogin() {
     const router = useRouter();
@@ -15,16 +16,21 @@ export default function PanitiaLogin() {
         setError('');
         setIsSubmitting(true);
         
-        // Simulasi proses login PIN
-        setTimeout(() => {
+        const { data, error: loginError } = await supabase.auth.signInWithPassword({
+            email: 'admin@juri.jinga.local',
+            password: pin,
+        });
+        const isAdmin = data.user?.app_metadata?.role === 'admin';
+        if (loginError || !isAdmin) {
+            if (data.session) await supabase.auth.signOut();
+            setError('PIN yang Anda masukkan salah.');
+            setPin('');
             setIsSubmitting(false);
-            if (pin === '202609') {
-                router.push('/panitia/dashboard');
-            } else {
-                setError('PIN yang Anda masukkan salah.');
-                setPin('');
-            }
-        }, 800);
+            return;
+        }
+        window.localStorage.setItem('jinga-access-mode', 'admin');
+        setIsSubmitting(false);
+        router.push('/panitia/dashboard');
     };
 
     return (

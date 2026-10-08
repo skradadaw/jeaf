@@ -94,3 +94,120 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Slider penilaian: tampilan stabil saat hover, fokus, dan drag. */
+.scoring-range {
+  --slider-color: #7c3aed;
+  --slider-progress: 0%;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  margin: 0;
+  border: 0;
+  border-radius: 9999px;
+  outline: none;
+  background: linear-gradient(
+    to right,
+    var(--slider-color) 0%,
+    var(--slider-color) var(--slider-progress),
+    #e2e8f0 var(--slider-progress),
+    #e2e8f0 100%
+  );
+  cursor: pointer;
+}
+
+.scoring-range:hover,
+.scoring-range:active,
+.scoring-range:focus {
+  outline: none;
+  background: linear-gradient(
+    to right,
+    var(--slider-color) 0%,
+    var(--slider-color) var(--slider-progress),
+    #e2e8f0 var(--slider-progress),
+    #e2e8f0 100%
+  );
+}
+
+.scoring-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #ffffff;
+  border-radius: 9999px;
+  background: var(--slider-color);
+  box-shadow: 0 0 0 1px #cbd5e1;
+  cursor: grab;
+}
+
+.scoring-range:active::-webkit-slider-thumb {
+  background: var(--slider-color);
+  box-shadow: 0 0 0 1px #cbd5e1;
+  cursor: grabbing;
+}
+
+.scoring-range::-moz-range-track {
+  height: 6px;
+  border: 0;
+  border-radius: 9999px;
+  background: #e2e8f0;
+}
+
+.scoring-range::-moz-range-progress {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--slider-color);
+}
+
+.scoring-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 3px solid #ffffff;
+  border-radius: 9999px;
+  background: var(--slider-color);
+  box-shadow: 0 0 0 1px #cbd5e1;
+  cursor: grab;
+}
+
+/* Modal tetap tanpa scroll pada laptop normal, tetapi aman pada viewport pendek. */
+@media (max-height: 760px), (max-width: 767px) {
+  .scoring-modal-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scoring-modal-body::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .scoring-dialog {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  .scoring-range {
+    height: 8px;
+    /* Vertical gestures keep scrolling the modal; horizontal gestures stay with the range control. */
+    touch-action: pan-y;
+  }
+
+  .scoring-range::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  .scoring-range::-moz-range-track,
+  .scoring-range::-moz-range-progress {
+    height: 8px;
+  }
+
+  .scoring-range::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+  }
+}

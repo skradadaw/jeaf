@@ -184,11 +184,12 @@ DROP POLICY IF EXISTS "Izinkan panitia mengubah penilaian juri" ON public.penila
 CREATE POLICY "Izinkan panitia mengubah penilaian juri"
 ON public.penilaian_juri FOR UPDATE TO anon USING (true) WITH CHECK (true);
 
--- Dua juri awal untuk setiap cabang. Nama dapat diubah langsung dari tabel juri.
+-- Jumlah juri awal: MHQ 4 juri, cabang lainnya 2 juri.
 INSERT INTO public.juri (kode, nama) VALUES
     ('ADZ-J1', 'Juri 1 Adzan'), ('ADZ-J2', 'Juri 2 Adzan'),
     ('FSH-J1', 'Juri 1 Fashion Show'), ('FSH-J2', 'Juri 2 Fashion Show'),
     ('MHQ-J1', 'Juri 1 MHQ'), ('MHQ-J2', 'Juri 2 MHQ'),
+    ('MHQ-J3', 'Juri 3 MHQ'), ('MHQ-J4', 'Juri 4 MHQ'),
     ('KLS-J1', 'Juri 1 Karya Kolase'), ('KLS-J2', 'Juri 2 Karya Kolase'),
     ('WAR-J1', 'Juri 1 Mewarnai'), ('WAR-J2', 'Juri 2 Mewarnai'),
     ('PNL-J1', 'Juri 1 Tendangan Penalti'), ('PNL-J2', 'Juri 2 Tendangan Penalti'),
@@ -202,6 +203,7 @@ JOIN (VALUES
     ('ADZ-J1', 'Adzan'), ('ADZ-J2', 'Adzan'),
     ('FSH-J1', 'Fashion Show'), ('FSH-J2', 'Fashion Show'),
     ('MHQ-J1', 'MHQ'), ('MHQ-J2', 'MHQ'),
+    ('MHQ-J3', 'MHQ'), ('MHQ-J4', 'MHQ'),
     ('KLS-J1', 'Karya Kolase'), ('KLS-J2', 'Karya Kolase'),
     ('WAR-J1', 'Mewarnai'), ('WAR-J2', 'Mewarnai'),
     ('PNL-J1', 'Tendangan Penalti'), ('PNL-J2', 'Tendangan Penalti'),

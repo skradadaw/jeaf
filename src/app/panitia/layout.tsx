@@ -1,16 +1,69 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function PanitiaLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isJuryMenuOpen, setIsJuryMenuOpen] = useState(() => pathname.startsWith('/panitia/penilaian'));
+  const [accessMode, setAccessMode] = useState<string | null>(null);
+  const [isAccessModeReady, setIsAccessModeReady] = useState(false);
+
+  useEffect(() => {
+    setAccessMode(window.localStorage.getItem('jinga-access-mode'));
+    setIsAccessModeReady(true);
+  }, [pathname]);
 
   // If they are on the login page, don't show the dashboard layout
-  if (pathname === '/panitia/login') {
+  if (pathname === '/panitia/login' || pathname === '/panitia/juri-login') {
     return <>{children}</>;
+  }
+
+  // Hindari pergantian layout admin/juri sesaat ketika localStorage belum dibaca.
+  if (pathname.startsWith('/panitia/penilaian') && !isAccessModeReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center overflow-hidden bg-slate-100 text-slate-500">
+        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-bold shadow-sm">
+          <i className="fa-solid fa-circle-notch fa-spin text-purple-500" aria-hidden="true"></i>
+          Menyiapkan halaman penilaian...
+        </div>
+      </div>
+    );
+  }
+
+  // Area penilaian memakai portal khusus juri, terpisah dari dashboard admin.
+  if (pathname.startsWith('/panitia/penilaian') && accessMode !== 'admin') {
+    return (
+      <div className="min-h-screen bg-slate-100 font-inter text-slate-800">
+        <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+          <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-3 lg:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="h-11 w-11 shrink-0 rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200">
+                <img src="/assets/logo.png" alt="Logo JinGa" className="h-full w-full object-contain" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h1 className="truncate text-base font-black text-slate-900 sm:text-lg">Portal Penilaian Juri</h1>
+                  <span className="hidden rounded-full bg-purple-100 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-purple-700 sm:inline">Khusus Juri</span>
+                </div>
+                <p className="truncate text-[11px] font-semibold text-slate-500">JinGa Festival 2026 · SD Plus 3 Al-Muhajirin</p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">
+              <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+              <span className="hidden sm:inline">Sistem Terhubung</span>
+              <span className="sm:hidden">Online</span>
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto w-full max-w-[1600px] p-3 sm:p-4 lg:p-6">
+          {children}
+        </main>
+      </div>
+    );
   }
 
   const menuItems = [
@@ -22,13 +75,10 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
       icon: 'fa-star',
       color: 'text-purple-500',
       children: [
-        { name: 'Adzan', path: '/panitia/penilaian/adzan', icon: 'fa-microphone' },
-        { name: 'Fashion Show', path: '/panitia/penilaian/fashion-show', icon: 'fa-person-dress' },
         { name: 'MHQ', path: '/panitia/penilaian/mhq', icon: 'fa-book-quran' },
-        { name: 'Karya Kolase', path: '/panitia/penilaian/karya-kolase', icon: 'fa-palette' },
-        { name: 'Mewarnai', path: '/panitia/penilaian/mewarnai', icon: 'fa-fill-drip' },
-        { name: 'Tendangan Penalti', path: '/panitia/penilaian/tendangan-penalti', icon: 'fa-futbol' },
+        { name: 'Adzan', path: '/panitia/penilaian/adzan', icon: 'fa-microphone' },
         { name: 'Menyanyi Solo', path: '/panitia/penilaian/menyanyi-solo', icon: 'fa-music' },
+        { name: 'Fashion Show', path: '/panitia/penilaian/fashion-show', icon: 'fa-person-dress' },
       ],
     },
     { name: 'Pengaturan', path: '/panitia/pengaturan', icon: 'fa-gear', color: 'text-slate-500' },
@@ -38,7 +88,7 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
     <div className="min-h-screen bg-[#F8FAFC] font-inter flex text-slate-800">
       
       {/* Sidebar Desktop */}
-      <aside className="hidden lg:flex flex-col w-72 bg-white/70 backdrop-blur-xl border-r border-slate-200/60 shadow-sm z-20">
+      <aside className="z-20 hidden w-72 shrink-0 self-start border-r border-slate-200/60 bg-white/90 shadow-sm backdrop-blur-xl lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl shadow-sm flex-shrink-0">
                 <img src="/assets/logo.png" alt="Logo JinGa Panel" className="w-full h-full object-contain" />
@@ -52,25 +102,46 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
         <nav className="flex-1 p-4 space-y-2">
           {menuItems.map((item) => {
             const isActive = pathname.startsWith(item.path);
+            const isSubmenuOpen = Boolean(item.children && isJuryMenuOpen);
+            const menuClassName = `flex w-full items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm text-left transition-all ${isActive ? 'bg-white shadow-sm border border-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`;
+            const menuContent = (
+              <>
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isActive ? 'bg-slate-50' : ''}`}>
+                  <i className={`fa-solid ${item.icon} ${isActive ? item.color : 'text-slate-400'}`}></i>
+                </div>
+                <span className="flex-1">{item.name}</span>
+                {item.children && <i className={`fa-solid fa-chevron-down text-[10px] transition-transform ${isSubmenuOpen ? 'rotate-180 text-purple-400' : 'text-slate-300'}`}></i>}
+              </>
+            );
             return (
               <div key={item.name}>
-                <Link href={item.path} className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all ${isActive ? 'bg-white shadow-sm border border-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isActive ? 'bg-slate-50' : ''}`}>
-                      <i className={`fa-solid ${item.icon} ${isActive ? item.color : 'text-slate-400'}`}></i>
-                  </div>
-                  <span className="flex-1">{item.name}</span>
-                  {item.children && <i className={`fa-solid fa-chevron-down text-[10px] transition-transform ${isActive ? 'rotate-180 text-purple-400' : 'text-slate-300'}`}></i>}
-                </Link>
+                {item.children ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsJuryMenuOpen((open) => !open)}
+                    aria-expanded={isSubmenuOpen}
+                    aria-controls="desktop-jury-submenu"
+                    className={menuClassName}
+                  >
+                    {menuContent}
+                  </button>
+                ) : (
+                  <Link href={item.path} className={menuClassName}>
+                    {menuContent}
+                  </Link>
+                )}
 
-                {item.children && isActive && (
-                  <div className="mt-2 ml-8 pl-3 border-l-2 border-purple-100 space-y-1">
+                {item.children && isSubmenuOpen && (
+                  <div id="desktop-jury-submenu" className="mt-2 ml-8 pl-3 border-l-2 border-purple-100 space-y-1">
                     {item.children.map((child) => {
                       const isChildActive = pathname === child.path;
                       return (
-                        <Link key={child.path} href={child.path} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${isChildActive ? 'bg-purple-50 text-purple-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
-                          <i className={`fa-solid ${child.icon} w-4 text-center ${isChildActive ? 'text-purple-500' : 'text-slate-400'}`}></i>
-                          {child.name}
-                        </Link>
+                        <div key={child.path}>
+                          <Link href={child.path} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${isChildActive ? 'bg-purple-50 text-purple-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
+                            <i className={`fa-solid ${child.icon} w-4 text-center ${isChildActive ? 'text-purple-500' : 'text-slate-400'}`}></i>
+                            {child.name}
+                          </Link>
+                        </div>
                       );
                     })}
                   </div>
@@ -81,6 +152,12 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
         </nav>
 
         <div className="p-4 border-t border-slate-100">
+          <Link href="/panitia/juri-login" className="mb-1 w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm text-purple-600 hover:bg-purple-50 transition-all">
+            <div className="w-8 h-8 rounded-xl bg-purple-50 flex items-center justify-center">
+                <i className="fa-solid fa-user-pen"></i>
+            </div>
+            Login Juri
+          </Link>
           <Link href="/panitia/login" className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm text-rose-500 hover:bg-rose-50 transition-all">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center">
                 <i className="fa-solid fa-arrow-right-from-bracket"></i>
@@ -91,11 +168,10 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen overflow-hidden relative">
+      <div className="relative flex min-h-screen min-w-0 flex-1 flex-col bg-[#F8FAFC]">
         
         {/* Background Decorations */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-sky-200/40 rounded-full blur-[100px] -z-10 translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-amber-200/30 rounded-full blur-[80px] -z-10 -translate-x-1/2 translate-y-1/3 pointer-events-none"></div>
 
         {/* Topbar Mobile */}
         <header className="lg:hidden bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-30 px-4 py-3 flex items-center justify-between">
@@ -122,25 +198,46 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
                     <nav className="p-4 space-y-2">
                         {menuItems.map((item) => {
                             const isActive = pathname.startsWith(item.path);
+                            const isSubmenuOpen = Boolean(item.children && isJuryMenuOpen);
+                            const menuClassName = `flex w-full items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-sm text-left transition-all ${isActive ? 'bg-slate-50 text-slate-900 border border-slate-100' : 'text-slate-600 active:bg-slate-50'}`;
+                            const menuContent = (
+                                <>
+                                    <div className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center">
+                                        <i className={`fa-solid ${item.icon} ${isActive ? item.color : 'text-slate-400'}`}></i>
+                                    </div>
+                                    <span className="flex-1">{item.name}</span>
+                                    {item.children && <i className={`fa-solid fa-chevron-down text-[10px] transition-transform ${isSubmenuOpen ? 'rotate-180 text-purple-400' : 'text-slate-300'}`}></i>}
+                                </>
+                            );
                             return (
                                 <div key={item.name}>
-                                    <Link href={item.path} onClick={() => !item.children && setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all ${isActive ? 'bg-slate-50 text-slate-900 border border-slate-100' : 'text-slate-600 active:bg-slate-50'}`}>
-                                        <div className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center">
-                                            <i className={`fa-solid ${item.icon} ${isActive ? item.color : 'text-slate-400'}`}></i>
-                                        </div>
-                                        <span className="flex-1">{item.name}</span>
-                                        {item.children && <i className={`fa-solid fa-chevron-down text-[10px] ${isActive ? 'rotate-180 text-purple-400' : 'text-slate-300'}`}></i>}
-                                    </Link>
+                                    {item.children ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsJuryMenuOpen((open) => !open)}
+                                            aria-expanded={isSubmenuOpen}
+                                            aria-controls="mobile-jury-submenu"
+                                            className={menuClassName}
+                                        >
+                                            {menuContent}
+                                        </button>
+                                    ) : (
+                                        <Link href={item.path} onClick={() => setIsMobileMenuOpen(false)} className={menuClassName}>
+                                            {menuContent}
+                                        </Link>
+                                    )}
 
-                                    {item.children && isActive && (
-                                        <div className="mt-2 ml-8 pl-3 border-l-2 border-purple-100 space-y-1">
+                                    {item.children && isSubmenuOpen && (
+                                        <div id="mobile-jury-submenu" className="mt-2 ml-8 pl-3 border-l-2 border-purple-100 space-y-1">
                                             {item.children.map((child) => {
                                                 const isChildActive = pathname === child.path;
                                                 return (
-                                                    <Link key={child.path} href={child.path} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold ${isChildActive ? 'bg-purple-50 text-purple-700' : 'text-slate-500 active:bg-slate-50'}`}>
-                                                        <i className={`fa-solid ${child.icon} w-4 text-center ${isChildActive ? 'text-purple-500' : 'text-slate-400'}`}></i>
-                                                        {child.name}
-                                                    </Link>
+                                                    <div key={child.path}>
+                                                        <Link href={child.path} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold ${isChildActive ? 'bg-purple-50 text-purple-700' : 'text-slate-500 active:bg-slate-50'}`}>
+                                                            <i className={`fa-solid ${child.icon} w-4 text-center ${isChildActive ? 'text-purple-500' : 'text-slate-400'}`}></i>
+                                                            {child.name}
+                                                        </Link>
+                                                    </div>
                                                 );
                                             })}
                                         </div>
@@ -149,6 +246,12 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
                             );
                         })}
                         <div className="h-px bg-slate-100 my-2"></div>
+                        <Link href="/panitia/juri-login" onClick={() => setIsMobileMenuOpen(false)} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-sm text-purple-600 active:bg-purple-50 transition-all">
+                            <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center">
+                                <i className="fa-solid fa-user-pen"></i>
+                            </div>
+                            Login Juri
+                        </Link>
                         <Link href="/panitia/login" onClick={() => setIsMobileMenuOpen(false)} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-sm text-rose-500 active:bg-rose-50 transition-all">
                             <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center">
                                 <i className="fa-solid fa-arrow-right-from-bracket"></i>
@@ -181,7 +284,7 @@ export default function PanitiaLayout({ children }: { children: React.ReactNode 
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 flex flex-col overflow-y-auto p-4 lg:p-8">
+        <main className="flex flex-1 flex-col p-4 lg:p-8">
             {/* Mobile Scan Button */}
             {pathname !== '/panitia/scan' && (
                 <div className="lg:hidden mb-4">

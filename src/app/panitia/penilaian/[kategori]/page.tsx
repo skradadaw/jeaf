@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useMemo, use, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
+import { exportPenilaianToExcel } from '@/lib/exportPenilaian';
 
 const categoryMap: Record<string, string> = {
     'adzan': 'Adzan',
@@ -26,15 +28,25 @@ type Juri = {
     id: string;
     kode: string;
     nama: string;
+    user_id?: string;
 };
 
 type NilaiJuri = {
     id?: string;
+    pendaftar_id?: string;
     juri_id: string;
     detail_nilai: Record<string, number>;
     nilai_total: number;
     catatan: string;
-    status: 'draft' | 'final';
+    version: number;
+};
+
+type RingkasanNilai = {
+    pendaftar_id: string;
+    jumlah_juri: number;
+    jumlah_selesai: number;
+    nilai_akhir: number | null;
+    juri_belum: string[];
 };
 
 const criteriaConfig: Record<string, CriteriaItem[]> = {
@@ -89,23 +101,84 @@ const criteriaConfig: Record<string, CriteriaItem[]> = {
     ]
 };
 
+const snapToNearestGuide = (value: number, guides: number[], threshold: number) => {
+    const nearest = guides.reduce((closest, guide) =>
+        Math.abs(guide - value) < Math.abs(closest - value) ? guide : closest
+    );
+    return Math.abs(nearest - value) <= threshold ? nearest : value;
+};
+
+const criteriaAccentStyles = [
+    { border: 'border-l-violet-500 sm:border-l-slate-200', soft: 'bg-violet-50', text: 'text-violet-700', color: '#7c3aed' },
+    { border: 'border-l-blue-500 sm:border-l-slate-200', soft: 'bg-blue-50', text: 'text-blue-700', color: '#2563eb' },
+    { border: 'border-l-emerald-500 sm:border-l-slate-200', soft: 'bg-emerald-50', text: 'text-emerald-700', color: '#059669' },
+    { border: 'border-l-amber-500 sm:border-l-slate-200', soft: 'bg-amber-50', text: 'text-amber-700', color: '#d97706' },
+    { border: 'border-l-rose-500 sm:border-l-slate-200', soft: 'bg-rose-50', text: 'text-rose-700', color: '#e11d48' },
+];
+
 export default function CategoryPenilaianPage({ params }: { params: Promise<{ kategori: string }> }) {
     const unwrappedParams = use(params);
+    const router = useRouter();
     const currentCategoryName = categoryMap[unwrappedParams.kategori] || 'Tidak Diketahui';
     
     const [pesertaList, setPesertaList] = useState<any[]>([]);
     const [juriList, setJuriList] = useState<Juri[]>([]);
     const [selectedJuriId, setSelectedJuriId] = useState('');
-    const [isJuriMenuOpen, setIsJuriMenuOpen] = useState(false);
-    const [pendingJuriId, setPendingJuriId] = useState<string | null>(null);
     const [databaseError, setDatabaseError] = useState('');
     const [loading, setLoading] = useState(true);
-    const confirmJuriButtonRef = useRef<HTMLButtonElement>(null);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
+    const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+    const [activeCriteria, setActiveCriteria] = useState<CriteriaItem[]>([]);
+    const hasLoadedOnce = useRef(false);
+    const realtimeDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
     
     useEffect(() => {
         const fetchPeserta = async () => {
-            setLoading(true);
+            if (!hasLoadedOnce.current) setLoading(true);
             setDatabaseError('');
+
+            // Ambil sesi lokal lebih dulu agar perpindahan dari login admin tidak
+            // salah dianggap sebagai sesi kosong saat token masih dipulihkan.
+            const { data: sessionData } = await supabase.auth.getSession();
+            let authenticatedUser = sessionData.session?.user ?? null;
+
+            if (!authenticatedUser) {
+                const { data: userData } = await supabase.auth.getUser();
+                authenticatedUser = userData.user;
+            }
+
+            if (!authenticatedUser) {
+                const savedMode = window.localStorage.getItem('jinga-access-mode');
+                router.replace(savedMode === 'admin' ? '/panitia/login' : '/panitia/juri-login');
+                return;
+            }
+            const adminSession = authenticatedUser.app_metadata?.role === 'admin';
+            setIsAdmin(adminSession);
+
+            const { data: criteriaRows, error: criteriaError } = await supabase
+                .from('kriteria_penilaian')
+                .select('kode, label, bobot, nilai_maksimum, urutan')
+                .eq('cabang_lomba', currentCategoryName)
+                .eq('aktif', true)
+                .order('urutan');
+            if (criteriaError || !criteriaRows?.length) {
+                setDatabaseError('Konfigurasi kriteria penilaian tidak dapat dimuat.');
+                setLoading(false);
+                return;
+            }
+            const presentationCriteria = criteriaConfig[currentCategoryName] || criteriaConfig.default;
+            const resolvedCriteria: CriteriaItem[] = criteriaRows.map(row => {
+                const presentation = presentationCriteria.find(item => item.id === row.kode);
+                return {
+                    id: row.kode,
+                    label: row.label,
+                    weight: Number(row.bobot),
+                    icon: presentation?.icon || 'fa-star',
+                    indicator: presentation?.indicator || 'Berikan nilai sesuai penampilan peserta.',
+                };
+            });
+            setActiveCriteria(resolvedCriteria);
 
             const { data: assignments, error: assignmentError } = await supabase
                 .from('juri_kategori')
@@ -122,7 +195,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
 
             const juriIds = assignments?.map(item => item.juri_id) || [];
             const { data: judges, error: judgesError } = juriIds.length > 0
-                ? await supabase.from('juri').select('id, kode, nama').in('id', juriIds).eq('aktif', true).order('kode')
+                ? await supabase.from('juri').select('id, kode, nama, user_id').in('id', juriIds).eq('aktif', true).order('kode')
                 : { data: [], error: null };
 
             if (judgesError) {
@@ -131,12 +204,15 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
 
             const activeJudges = (judges || []) as Juri[];
             setJuriList(activeJudges);
-            const storageKey = `jinga-juri-${unwrappedParams.kategori}`;
-            const savedJuriId = window.localStorage.getItem(storageKey);
-            const restoredJuriId = activeJudges.some(juri => juri.id === savedJuriId)
-                ? savedJuriId!
-                : '';
-            setSelectedJuriId(restoredJuriId);
+            const authenticatedJuri = adminSession
+                ? activeJudges[0]
+                : activeJudges.find(juri => juri.user_id === authenticatedUser.id);
+            if (!authenticatedJuri) {
+                setDatabaseError('Akun ini tidak aktif atau tidak ditugaskan pada cabang lomba ini.');
+                setLoading(false);
+                return;
+            }
+            setSelectedJuriId(previous => adminSession && activeJudges.some(juri => juri.id === previous) ? previous : authenticatedJuri.id);
 
             const { data, error } = await supabase
                 .from('pendaftar')
@@ -146,30 +222,27 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                 
             if (!error && data) {
                 const participantIds = data.map(p => p.id);
-                const { data: scoreRows, error: scoreError } = participantIds.length > 0
-                    ? await supabase
+                const [{ data: scoreRows, error: scoreError }, { data: summaries, error: summaryError }] = participantIds.length > 0
+                    ? await Promise.all([supabase
                         .from('penilaian_juri')
-                        .select('id, pendaftar_id, juri_id, detail_nilai, nilai_total, catatan, status')
-                        .in('pendaftar_id', participantIds)
-                    : { data: [], error: null };
+                        .select('id, pendaftar_id, juri_id, detail_nilai, nilai_total, catatan, version')
+                        .in('pendaftar_id', participantIds), supabase.rpc('get_ringkasan_penilaian', { p_kategori: currentCategoryName })])
+                    : [{ data: [], error: null }, { data: [], error: null }];
 
-                if (scoreError) {
-                    setDatabaseError('Nilai juri gagal dimuat: ' + scoreError.message);
+                if (scoreError || summaryError) {
+                    setDatabaseError('Nilai juri gagal dimuat: ' + (scoreError?.message || summaryError?.message));
                 }
+                const summaryMap = new Map(((summaries || []) as RingkasanNilai[]).map(item => [item.pendaftar_id, item]));
 
                 // Map the DB data to include local scoring state
                 const mapped = data.map((p, index) => {
-                    const currentCriteria = criteriaConfig[p.cabang_lomba] || criteriaConfig['default'];
+                    const currentCriteria = resolvedCriteria;
                     const initialKriteria: Record<string, number> = {};
                     currentCriteria.forEach(c => initialKriteria[c.id] = 0);
                     const nilaiJuri = ((scoreRows || []) as Array<NilaiJuri & { pendaftar_id: string }>)
-                        .filter(score => score.pendaftar_id === p.id);
-                    const nilaiFinal = nilaiJuri.filter(score => score.status === 'final');
-                    const lengkap = activeJudges.length > 0 && nilaiFinal.length === activeJudges.length;
-                    const juriBelumMenilai = activeJudges.filter(juri => !nilaiFinal.some(score => score.juri_id === juri.id));
-                    const nilaiRataRata = lengkap
-                        ? Math.round(nilaiFinal.reduce((total, score) => total + score.nilai_total, 0) / nilaiFinal.length)
-                        : null;
+                        .filter(score => score.pendaftar_id === p.id && activeJudges.some(juri => juri.id === score.juri_id));
+                    const summary = summaryMap.get(p.id);
+                    const lengkap = Boolean(summary && summary.jumlah_juri > 0 && summary.jumlah_selesai === summary.jumlah_juri);
                     
                     return {
                         id: p.id,
@@ -181,15 +254,17 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                         kategori: p.cabang_lomba,
                         status_nilai: lengkap
                             ? 'Penilaian Lengkap'
-                            : nilaiFinal.length > 0
-                                ? `Menunggu ${juriBelumMenilai.map(juri => juri.nama).join(', ')}`
+                            : (summary?.jumlah_selesai || 0) > 0
+                                ? `Menunggu ${summary?.juri_belum?.join(', ') || 'juri lain'}`
                                 : 'Belum Dinilai',
-                        total_nilai: nilaiRataRata,
+                        total_nilai: lengkap ? summary?.nilai_akhir ?? null : null,
                         nilai_juri: nilaiJuri,
                         initial_kriteria: initialKriteria,
                     };
                 });
                 setPesertaList(mapped);
+                setLastSyncedAt(new Date());
+                hasLoadedOnce.current = true;
             } else if (error) {
                 setDatabaseError('Data peserta gagal dimuat: ' + error.message);
             }
@@ -201,7 +276,26 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
         } else {
             setLoading(false);
         }
-    }, [currentCategoryName, unwrappedParams.kategori]);
+    }, [currentCategoryName, router, refreshKey]);
+
+    useEffect(() => {
+        const channel = supabase
+            .channel(`penilaian-${unwrappedParams.kategori}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'penilaian_juri' }, () => {
+                if (realtimeDebounce.current) clearTimeout(realtimeDebounce.current);
+                realtimeDebounce.current = setTimeout(() => setRefreshKey(value => value + 1), 300);
+            })
+            .subscribe();
+        const handleFocus = () => setRefreshKey(value => value + 1);
+        const fallbackPolling = window.setInterval(() => setRefreshKey(value => value + 1), 10000);
+        window.addEventListener('focus', handleFocus);
+        return () => {
+            window.removeEventListener('focus', handleFocus);
+            window.clearInterval(fallbackPolling);
+            if (realtimeDebounce.current) clearTimeout(realtimeDebounce.current);
+            void supabase.removeChannel(channel);
+        };
+    }, [unwrappedParams.kategori]);
     
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('Semua Status');
@@ -210,50 +304,57 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
     const [activePeserta, setActivePeserta] = useState<any>(null);
     const [tempNilai, setTempNilai] = useState<Record<string, number>>({});
     const [tempCatatan, setTempCatatan] = useState('');
+    const [touchedCriteria, setTouchedCriteria] = useState<Set<string>>(new Set());
+    const [missingCriteriaIds, setMissingCriteriaIds] = useState<string[]>([]);
+    const [originalForm, setOriginalForm] = useState('');
+    const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+    const [isMobileNotesOpen, setIsMobileNotesOpen] = useState(false);
+    const sliderFrameRef = useRef<number | null>(null);
+    const pendingSliderValueRef = useRef<{ criterionId: string; value: number } | null>(null);
+
+    const currentFormSnapshot = JSON.stringify({ nilai: tempNilai, catatan: tempCatatan });
+    const hasUnsavedChanges = isModalOpen && currentFormSnapshot !== originalForm;
+    const filledCriteriaCount = activeCriteria.filter(criterion => touchedCriteria.has(criterion.id)).length;
+
+    useEffect(() => {
+        const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (!hasUnsavedChanges) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', warnBeforeUnload);
+        return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+    }, [hasUnsavedChanges]);
+
+    useEffect(() => {
+        if (!isModalOpen) return;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [isModalOpen]);
 
     // --- Export Excel ---
     const handleExportExcel = (kategoriSlug: string) => {
         try {
+            if (!isAdmin) {
+                alert('Export hanya tersedia untuk administrator.');
+                return;
+            }
             if (pesertaList.length === 0) {
                 alert('Tidak ada data peserta untuk kategori ini.');
                 return;
             }
 
-            const headers = [
-                'No', 'Kode Peserta', 'Nama Peserta', 'Asal Sekolah', 'Kategori',
-                ...juriList.flatMap(juri => [`Nilai ${juri.nama}`, `Catatan ${juri.nama}`]),
-                'Status Nilai', 'Total Nilai Akhir',
-            ];
-            const csvRows = [headers.join(';')];
-
-            const sortedData = [...pesertaList].sort((a, b) => (b.total_nilai ?? -1) - (a.total_nilai ?? -1));
-
-            sortedData.forEach((p, index) => {
-                const juryColumns = juriList.flatMap(juri => {
-                    const score = (p.nilai_juri as NilaiJuri[]).find(item => item.juri_id === juri.id && item.status === 'final');
-                    return [score?.nilai_total ?? '', `"${(score?.catatan || '').replace(/"/g, '""')}"`];
-                });
-                csvRows.push([
-                    index + 1,
-                    p.no_peserta,
-                    `"${p.nama_lengkap.replace(/"/g, '""')}"`,
-                    `"${p.asal.replace(/"/g, '""')}"`,
-                    `"${p.kategori}"`,
-                    ...juryColumns,
-                    p.status_nilai,
-                    p.total_nilai ?? '',
-                ].join(';'));
+            exportPenilaianToExcel({
+                kategori: kategoriSlug,
+                peserta: pesertaList,
+                juri: juriList,
+                kriteria: activeCriteria,
             });
-
-            const csvContent = '\ufeff' + csvRows.join('\n'); // Add BOM for Excel UTF-8
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Hasil_Penilaian_${kategoriSlug.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
         } catch (err: unknown) {
             alert('Gagal mengekspor data: ' + (err instanceof Error ? err.message : 'Terjadi kesalahan'));
         }
@@ -289,53 +390,111 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
     }, [pesertaList]);
 
     // --- Handlers ---
-    const applyJuriChange = (nextJuriId: string) => {
-        setSelectedJuriId(nextJuriId);
-        window.localStorage.setItem(`jinga-juri-${unwrappedParams.kategori}`, nextJuriId);
-        setIsModalOpen(false);
-        setPendingJuriId(null);
-    };
-
-    const handleJuriChange = (nextJuriId: string) => {
-        if (nextJuriId === selectedJuriId) return;
-        setIsJuriMenuOpen(false);
-
-        if (!selectedJuriId) {
-            applyJuriChange(nextJuriId);
-            return;
-        }
-
-        setPendingJuriId(nextJuriId);
-    };
-
-    useEffect(() => {
-        if (!pendingJuriId) return;
-
-        confirmJuriButtonRef.current?.focus();
-        const handleEscape = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') setPendingJuriId(null);
-        };
-        window.addEventListener('keydown', handleEscape);
-        return () => window.removeEventListener('keydown', handleEscape);
-    }, [pendingJuriId]);
-
     const openScoringModal = (peserta: any) => {
         if (!selectedJuriId) {
             alert('Pilih juri aktif terlebih dahulu.');
             return;
         }
         const existingScore = (peserta.nilai_juri as NilaiJuri[]).find(score => score.juri_id === selectedJuriId);
+        const startingValues = { ...(existingScore?.detail_nilai || peserta.initial_kriteria) };
         setActivePeserta(peserta);
-        setTempNilai({ ...(existingScore?.detail_nilai || peserta.initial_kriteria) });
+        setTempNilai(startingValues);
         setTempCatatan(existingScore?.catatan || '');
+        setTouchedCriteria(new Set(existingScore ? Object.keys(existingScore.detail_nilai) : []));
+        setMissingCriteriaIds([]);
+        setIsMobileNotesOpen(Boolean(existingScore?.catatan));
+        setOriginalForm(JSON.stringify({ nilai: startingValues, catatan: existingScore?.catatan || '' }));
         setIsModalOpen(true);
     };
 
+    const markCriterionFilled = (criterionId: string) => {
+        setTouchedCriteria(previous => {
+            if (previous.has(criterionId)) return previous;
+            return new Set(previous).add(criterionId);
+        });
+        setMissingCriteriaIds(previous => previous.includes(criterionId)
+            ? previous.filter(id => id !== criterionId)
+            : previous);
+    };
+
+    const commitSliderValue = (criterionId: string, value: number) => {
+        setTempNilai(previous => previous[criterionId] === value
+            ? previous
+            : { ...previous, [criterionId]: value });
+        markCriterionFilled(criterionId);
+    };
+
+    const queueSliderValue = (criterionId: string, value: number) => {
+        pendingSliderValueRef.current = { criterionId, value };
+        if (sliderFrameRef.current !== null) return;
+
+        sliderFrameRef.current = window.requestAnimationFrame(() => {
+            sliderFrameRef.current = null;
+            const pending = pendingSliderValueRef.current;
+            pendingSliderValueRef.current = null;
+            if (pending) commitSliderValue(pending.criterionId, pending.value);
+        });
+    };
+
+    const finishSliderInteraction = (criterionId: string, rawValue: number, guideScores: number[], maxScore: number) => {
+        if (sliderFrameRef.current !== null) {
+            window.cancelAnimationFrame(sliderFrameRef.current);
+            sliderFrameRef.current = null;
+        }
+        pendingSliderValueRef.current = null;
+        commitSliderValue(criterionId, snapToNearestGuide(rawValue, guideScores, maxScore === 3 ? 0.4 : 4));
+    };
+
+    const showMissingCriteriaNotice = (missingIds: string[]) => {
+        setMissingCriteriaIds(missingIds);
+        setShowSaveConfirm(false);
+
+        window.requestAnimationFrame(() => {
+            document.getElementById(`criterion-${missingIds[0]}`)?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+            });
+        });
+    };
+
+    const requestSaveConfirmation = () => {
+        const missingIds = activeCriteria
+            .filter(criterion => !touchedCriteria.has(criterion.id))
+            .map(criterion => criterion.id);
+
+        if (missingIds.length > 0) {
+            showMissingCriteriaNotice(missingIds);
+            return;
+        }
+
+        setMissingCriteriaIds([]);
+        setShowSaveConfirm(true);
+    };
+
+    const requestCloseModal = () => {
+        if (hasUnsavedChanges) {
+            setShowDiscardConfirm(true);
+            return;
+        }
+        setIsModalOpen(false);
+    };
+
+    const handleLogoutJuri = async () => {
+        await supabase.auth.signOut();
+        window.localStorage.removeItem('jinga-access-mode');
+        router.replace(isAdmin ? '/panitia/login' : '/panitia/juri-login');
+    };
+
     const handleSaveScore = async () => {
-        const activeCriteria = criteriaConfig[activePeserta.kategori] || criteriaConfig['default'];
+        const criteriaForScore = activeCriteria;
+        const missingCriteria = criteriaForScore.filter(criteria => !touchedCriteria.has(criteria.id));
+        if (missingCriteria.length > 0) {
+            showMissingCriteriaNotice(missingCriteria.map(criterion => criterion.id));
+            return;
+        }
         let finalScore = 0;
         
-        activeCriteria.forEach(c => {
+        criteriaForScore.forEach(c => {
             const score = tempNilai[c.id] || 0;
             finalScore += score * (c.weight / 100);
         });
@@ -344,52 +503,53 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
         
         if (!selectedJuriId) return;
 
+        const invalidCriterion = criteriaForScore.find(criteria => {
+            const value = tempNilai[criteria.id];
+            const maximum = activePeserta.kategori === 'Tendangan Penalti' ? 3 : 100;
+            return touchedCriteria.has(criteria.id) && (!Number.isFinite(value) || value < 0 || value > maximum);
+        });
+        if (invalidCriterion) {
+            alert(`Nilai ${invalidCriterion.label} tidak valid.`);
+            return;
+        }
+
+        const detailToSave = Object.fromEntries(
+            Object.entries(tempNilai).filter(([key]) => touchedCriteria.has(key))
+        );
+        const existingScore = (activePeserta.nilai_juri as NilaiJuri[]).find(score => score.juri_id === selectedJuriId);
         const savedScore: NilaiJuri = {
             juri_id: selectedJuriId,
-            detail_nilai: { ...tempNilai },
+            detail_nilai: detailToSave,
             nilai_total: roundedScore,
             catatan: tempCatatan,
-            status: 'final',
+            version: existingScore ? existingScore.version + 1 : 1,
         };
 
-        const { error } = await supabase
-            .from('penilaian_juri')
-            .upsert({
-                pendaftar_id: activePeserta.id,
-                ...savedScore,
-                updated_at: new Date().toISOString(),
-            }, { onConflict: 'pendaftar_id,juri_id' });
+        setIsSaving(true);
+        const scorePayload = {
+            pendaftar_id: activePeserta.id,
+            ...savedScore,
+            updated_at: new Date().toISOString(),
+        };
+        const { error } = existingScore
+            ? await supabase.from('penilaian_juri').update(scorePayload)
+                .eq('id', existingScore.id).eq('version', existingScore.version).select('id').single()
+            : await supabase.from('penilaian_juri').insert(scorePayload).select('id').single();
             
         if (error) {
             alert('Gagal menyimpan nilai ke database: ' + error.message);
+            setIsSaving(false);
             return;
         }
         
-        setPesertaList(prev => prev.map(p => {
-            if (p.id === activePeserta.id) {
-                const otherScores = (p.nilai_juri as NilaiJuri[]).filter(score => score.juri_id !== selectedJuriId);
-                const nilaiJuri = [...otherScores, savedScore];
-                const nilaiFinal = nilaiJuri.filter(score => score.status === 'final');
-                const lengkap = juriList.length > 0 && nilaiFinal.length === juriList.length;
-                const juriBelumMenilai = juriList.filter(juri => !nilaiFinal.some(score => score.juri_id === juri.id));
-                return {
-                    ...p,
-                    status_nilai: lengkap
-                        ? 'Penilaian Lengkap'
-                        : `Menunggu ${juriBelumMenilai.map(juri => juri.nama).join(', ')}`,
-                    total_nilai: lengkap
-                        ? Math.round(nilaiFinal.reduce((total, score) => total + score.nilai_total, 0) / nilaiFinal.length)
-                        : null,
-                    nilai_juri: nilaiJuri,
-                };
-            }
-            return p;
-        }));
+        setIsSaving(false);
+        setOriginalForm(JSON.stringify({ nilai: tempNilai, catatan: tempCatatan }));
         setIsModalOpen(false);
+        setRefreshKey(value => value + 1);
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
             {databaseError && (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 flex items-start gap-3">
                     <i className="fa-solid fa-triangle-exclamation mt-0.5"></i>
@@ -397,87 +557,55 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                 </div>
             )}
 
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-5 text-white shadow-lg shadow-purple-500/15 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col justify-between gap-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 p-4 text-white shadow-lg shadow-purple-500/15 md:flex-row md:items-center md:gap-4 md:p-5">
                 <div>
-                    <p className="text-xs font-bold uppercase tracking-widest text-purple-200 mb-1">Juri Aktif</p>
-                    <h2 className="text-xl font-extrabold">Pilih identitas sebelum memberikan nilai</h2>
-                    <p className="text-sm text-purple-100 mt-1">Nilai disimpan terpisah dan tidak menimpa penilaian juri lain.</p>
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-purple-200 md:text-xs">{isAdmin ? 'Mode Administrator' : 'Juri Aktif'}</p>
+                    <h2 className="text-lg font-extrabold md:text-xl">
+                        <span className="sm:hidden">Penilaian {currentCategoryName}</span>
+                        <span className="hidden sm:inline">{juriList.find(juri => juri.id === selectedJuriId)?.nama || 'Memuat identitas juri...'}</span>
+                    </h2>
+                    <p className="mt-1 hidden text-sm text-purple-100 sm:block">{isAdmin ? 'Pilih juri jika perlu memasukkan atau memperbaiki nilai atas nama juri tersebut.' : 'Identitas dan cabang lomba dipilih otomatis dari akun yang masuk.'}</p>
                 </div>
-                <div className="relative w-full md:w-80 shrink-0 z-20">
-                    <button
-                        type="button"
-                        onClick={() => setIsJuriMenuOpen(open => !open)}
-                        disabled={juriList.length === 0}
-                        aria-haspopup="listbox"
-                        aria-expanded={isJuriMenuOpen}
-                        className="group relative z-20 flex min-h-14 w-full items-center gap-3 rounded-2xl border border-white/50 bg-white px-4 py-3 text-left shadow-lg shadow-indigo-950/10 transition-colors hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
-                            <i className="fa-solid fa-user-pen" aria-hidden="true"></i>
-                        </span>
-                        <span className="min-w-0 flex-1">
-                            <span className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Identitas aktif</span>
-                            <span className="block truncate text-sm font-extrabold text-slate-800">
-                                {juriList.find(juri => juri.id === selectedJuriId)?.nama || 'Pilih identitas juri'}
-                            </span>
-                        </span>
-                        <i className={`fa-solid fa-chevron-down text-slate-400 transition-transform ${isJuriMenuOpen ? 'rotate-180' : ''}`} aria-hidden="true"></i>
-                    </button>
-
-                    <AnimatePresence>
-                        {isJuriMenuOpen && (
-                            <>
-                                <button
-                                    type="button"
-                                    aria-label="Tutup pilihan juri"
-                                    onClick={() => setIsJuriMenuOpen(false)}
-                                    className="fixed inset-0 z-10 cursor-default"
-                                />
-                                <motion.div
-                                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                                    transition={{ duration: 0.16 }}
-                                    role="listbox"
-                                    aria-label="Pilih identitas juri"
-                                    className="absolute right-0 top-[calc(100%+10px)] z-20 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-slate-800 shadow-2xl shadow-slate-900/20"
-                                >
-                                    <div className="px-3 pb-2 pt-1 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
-                                        Juri {currentCategoryName}
-                                    </div>
-                                    <div className="space-y-1">
-                                        {juriList.map(juri => {
-                                            const isSelected = juri.id === selectedJuriId;
-                                            return (
-                                                <button
-                                                    key={juri.id}
-                                                    type="button"
-                                                    role="option"
-                                                    aria-selected={isSelected}
-                                                    onClick={() => handleJuriChange(juri.id)}
-                                                    className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${isSelected ? 'bg-purple-50 text-purple-700' : 'hover:bg-slate-50 text-slate-700'}`}
-                                                >
-                                                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-black ${isSelected ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                                                        {juri.kode.split('-').pop()}
-                                                    </span>
-                                                    <span className="min-w-0 flex-1">
-                                                        <span className="block truncate text-sm font-bold">{juri.nama}</span>
-                                                        <span className="block font-mono text-[10px] text-slate-400">{juri.kode}</span>
-                                                    </span>
-                                                    {isSelected && <i className="fa-solid fa-circle-check text-purple-600" aria-hidden="true"></i>}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </motion.div>
-                            </>
+                <div className="flex w-full items-center gap-3 rounded-xl border border-white/40 bg-white px-3 py-2.5 text-slate-800 shadow-lg shadow-indigo-950/10 md:w-auto md:min-w-80 md:rounded-2xl md:px-4 md:py-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
+                        <i className="fa-solid fa-id-card" aria-hidden="true"></i>
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-400">{isAdmin ? 'Menilai sebagai' : 'Identitas Juri'}</span>
+                        {isAdmin ? (
+                            <select value={selectedJuriId} onChange={(event) => setSelectedJuriId(event.target.value)} aria-label="Pilih juri untuk penilaian" className="mt-0.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm font-extrabold outline-none focus:border-purple-400">
+                                {juriList.map(juri => <option key={juri.id} value={juri.id}>{juri.nama} ({juri.kode})</option>)}
+                            </select>
+                        ) : (
+                            <><span className="block truncate text-sm font-extrabold">{juriList.find(juri => juri.id === selectedJuriId)?.nama || 'Memuat akun...'}</span><span className="block font-mono text-[10px] text-slate-400">{juriList.find(juri => juri.id === selectedJuriId)?.kode}</span></>
                         )}
-                    </AnimatePresence>
+                    </span>
+                    <button type="button" onClick={handleLogoutJuri} aria-label="Keluar akun juri"
+                        className="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition-colors active:bg-rose-50 active:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 md:h-10 md:w-10 md:hover:bg-rose-50 md:hover:text-rose-600">
+                        <i className="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
+                    </button>
                 </div>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-2 md:hidden">
+                <div className="rounded-2xl border border-purple-100 bg-purple-50 p-3 text-center">
+                    <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-white text-sm text-purple-600 shadow-sm"><i className="fa-solid fa-users" aria-hidden="true"></i></span>
+                    <p className="mt-2 text-2xl font-black leading-none text-slate-900">{stats.total}</p>
+                    <p className="mt-1 text-[10px] font-bold text-slate-500">Peserta</p>
+                </div>
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-center">
+                    <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-white text-sm text-emerald-600 shadow-sm"><i className="fa-solid fa-check" aria-hidden="true"></i></span>
+                    <p className="mt-2 text-2xl font-black leading-none text-slate-900">{stats.dinilai}</p>
+                    <p className="mt-1 text-[10px] font-bold text-slate-500">Lengkap</p>
+                </div>
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-center">
+                    <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-white text-sm text-amber-600 shadow-sm"><i className="fa-solid fa-hourglass-half" aria-hidden="true"></i></span>
+                    <p className="mt-2 text-2xl font-black leading-none text-slate-900">{stats.belum}</p>
+                    <p className="mt-1 text-[10px] font-bold text-slate-500">Belum</p>
+                </div>
+            </div>
+            <div className="hidden grid-cols-3 gap-4 md:grid">
                 <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-purple-100 rounded-bl-full -z-10 group-hover:scale-110 transition-transform"></div>
                     <div className="flex items-center justify-between">
@@ -517,7 +645,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
             </div>
 
             {/* Filters Area */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-slate-200/60 bg-white p-3 shadow-sm md:flex-row md:gap-4 md:p-4">
                 <div className="flex w-full flex-col sm:flex-row gap-2 md:w-auto">
                     <div className="relative w-full md:w-80">
                         <i className="fa-solid fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
@@ -526,23 +654,32 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                             placeholder={`Cari peserta di ${currentCategoryName}...`}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
+                            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-11 text-sm transition-all focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 md:h-auto md:pr-4"
                         />
+                        {searchQuery && (
+                            <button type="button" onClick={() => setSearchQuery('')} aria-label="Hapus pencarian" className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 active:bg-slate-200 md:hidden">
+                                <i className="fa-solid fa-xmark" aria-hidden="true"></i>
+                            </button>
+                        )}
                     </div>
-                    <button 
-                        onClick={() => handleExportExcel(unwrappedParams.kategori)}
-                        className="flex shrink-0 items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl font-bold text-sm transition-all shadow-md shadow-emerald-500/20 active:scale-[0.98]"
-                    >
-                        <i className="fa-solid fa-file-excel"></i>
-                        Export Excel
-                    </button>
+                    <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
+                        <span className="text-[10px] font-semibold text-slate-400">
+                            <i className="fa-solid fa-arrows-rotate mr-1 text-emerald-500"></i>
+                            {lastSyncedAt ? `Sinkron ${lastSyncedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` : 'Menyinkronkan...'}
+                        </span>
+                        {isAdmin && (
+                            <button onClick={() => handleExportExcel(unwrappedParams.kategori)} className="flex min-h-11 shrink-0 touch-manipulation items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-500/20 transition-all active:from-emerald-600 active:to-teal-600 md:px-5 md:text-sm md:hover:from-emerald-600 md:hover:to-teal-600">
+                                <i className="fa-solid fa-file-excel"></i> Export Excel
+                            </button>
+                        )}
+                    </div>
                 </div>
-                <div className="flex bg-slate-100 p-1 rounded-xl w-full md:w-auto">
+                <div className="grid w-full grid-cols-4 rounded-xl bg-slate-100 p-1 md:flex md:w-auto">
                     {['Semua Status', 'Belum Dinilai', 'Dalam Proses', 'Lengkap'].map(status => (
                         <button
                             key={status}
                             onClick={() => setFilterStatus(status)}
-                            className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-all ${filterStatus === status ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            className={`min-h-10 rounded-lg px-1.5 py-2 text-[10px] font-bold leading-tight transition-all md:min-h-0 md:flex-none md:px-4 md:text-xs ${filterStatus === status ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 active:text-slate-700 md:hover:text-slate-700'}`}
                         >
                             {status}
                         </button>
@@ -550,9 +687,71 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                 </div>
             </div>
 
-            {/* Data Table */}
-            <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
+            {/* Daftar peserta mobile */}
+            <div className="space-y-3 md:hidden">
+                {loading ? (
+                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-12 text-center shadow-sm">
+                        <i className="fa-solid fa-circle-notch fa-spin text-3xl text-purple-500" aria-hidden="true"></i>
+                        <p className="mt-3 text-sm font-semibold text-slate-500">Memuat data peserta...</p>
+                    </div>
+                ) : filteredPeserta.length > 0 ? (
+                    <AnimatePresence>
+                        {filteredPeserta.map((peserta, index) => {
+                            const hasMyScore = (peserta.nilai_juri as NilaiJuri[]).some(score => score.juri_id === selectedJuriId);
+                            const isComplete = peserta.status_nilai === 'Penilaian Lengkap';
+                            const isWaiting = peserta.status_nilai.startsWith('Menunggu');
+                            return (
+                                <motion.article
+                                    key={peserta.id}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ delay: Math.min(index * 0.02, 0.2) }}
+                                    className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex min-w-0 items-center gap-2.5">
+                                            <span className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-xl border border-purple-200 bg-purple-100 px-2 text-sm font-black text-purple-700">{peserta.nomor_urut}</span>
+                                            <div className="min-w-0">
+                                                <p className="truncate font-mono text-[11px] font-bold text-slate-500">{peserta.no_peserta}</p>
+                                                <h3 className="truncate text-sm font-extrabold text-slate-900">{peserta.nama_lengkap}</h3>
+                                            </div>
+                                        </div>
+                                        {peserta.total_nilai !== null && (
+                                            <div className="shrink-0 text-right">
+                                                <p className="text-[9px] font-extrabold uppercase tracking-wide text-slate-400">Nilai akhir</p>
+                                                <p className="text-xl font-black leading-tight text-purple-700">{peserta.total_nilai}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="mt-2 truncate text-xs text-slate-500"><i className="fa-solid fa-school mr-1.5 text-slate-400" aria-hidden="true"></i>{peserta.asal}</p>
+                                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                                        <span className={`inline-flex min-w-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold ${isComplete ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : isWaiting ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-rose-200 bg-rose-50 text-rose-600'}`}>
+                                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isComplete ? 'bg-emerald-500' : isWaiting ? 'bg-amber-500' : 'bg-rose-500'}`}></span>
+                                            <span className="truncate">{peserta.status_nilai}</span>
+                                        </span>
+                                        <button type="button" onClick={() => openScoringModal(peserta)} className="inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 text-xs font-extrabold text-white shadow-md shadow-purple-500/20 active:bg-purple-700">
+                                            <i className={`fa-solid ${hasMyScore ? 'fa-pen-to-square' : 'fa-star'}`} aria-hidden="true"></i>
+                                            {hasMyScore ? 'Edit Nilai' : 'Beri Nilai'}
+                                        </button>
+                                    </div>
+                                </motion.article>
+                            );
+                        })}
+                    </AnimatePresence>
+                ) : (
+                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-12 text-center shadow-sm">
+                        <i className="fa-solid fa-folder-open text-4xl text-slate-300" aria-hidden="true"></i>
+                        <p className="mt-3 text-sm font-semibold text-slate-500">Tidak ada peserta yang sesuai.</p>
+                        {(searchQuery || filterStatus !== 'Semua Status') && <p className="mt-1 text-xs text-slate-400">Coba ubah pencarian atau filter status.</p>}
+                    </div>
+                )}
+                {!loading && filteredPeserta.length > 0 && <p className="pb-1 text-center text-xs font-semibold text-slate-400">Menampilkan {filteredPeserta.length} peserta</p>}
+            </div>
+
+            {/* Data Table desktop */}
+            <div className="hidden h-auto max-h-none overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-sm md:block">
+                <div className={`h-auto max-h-none overflow-y-hidden ${loading ? 'overflow-x-hidden' : 'overflow-x-auto'}`}>
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50 border-b border-slate-200/60 text-slate-500 text-xs uppercase tracking-wider">
@@ -662,87 +861,15 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                 )}
             </div>
 
-            {/* Konfirmasi pergantian identitas juri */}
-            <AnimatePresence>
-                {pendingJuriId && (
-                    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-                        <motion.button
-                            type="button"
-                            aria-label="Batalkan pergantian juri"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setPendingJuriId(null)}
-                            className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm"
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.94, y: 16 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.96, y: 10 }}
-                            transition={{ duration: 0.2 }}
-                            role="alertdialog"
-                            aria-modal="true"
-                            aria-labelledby="judul-konfirmasi-juri"
-                            aria-describedby="deskripsi-konfirmasi-juri"
-                            className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/60 bg-white shadow-2xl shadow-slate-950/30"
-                        >
-                            <div className="bg-gradient-to-br from-purple-600 to-indigo-700 px-6 pb-8 pt-6 text-white">
-                                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
-                                    <i className="fa-solid fa-user-shield text-xl" aria-hidden="true"></i>
-                                </div>
-                                <h3 id="judul-konfirmasi-juri" className="text-xl font-extrabold">Ganti identitas juri?</h3>
-                                <p id="deskripsi-konfirmasi-juri" className="mt-2 text-sm leading-relaxed text-purple-100">
-                                    Pastikan perangkat ini benar-benar akan digunakan oleh juri yang dipilih. Nilai berikutnya akan tercatat atas identitas tersebut.
-                                </p>
-                            </div>
-
-                            <div className="-mt-3 px-6 pb-6">
-                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-lg shadow-slate-200/60">
-                                    <div className="flex items-center gap-3">
-                                        <div className="min-w-0 flex-1 rounded-xl bg-slate-50 p-3">
-                                            <span className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Dari</span>
-                                            <span className="block truncate text-sm font-bold text-slate-700">{juriList.find(juri => juri.id === selectedJuriId)?.nama}</span>
-                                        </div>
-                                        <i className="fa-solid fa-arrow-right text-purple-500" aria-hidden="true"></i>
-                                        <div className="min-w-0 flex-1 rounded-xl bg-purple-50 p-3 ring-1 ring-purple-100">
-                                            <span className="block text-[10px] font-extrabold uppercase tracking-wider text-purple-400">Menjadi</span>
-                                            <span className="block truncate text-sm font-bold text-purple-700">{juriList.find(juri => juri.id === pendingJuriId)?.nama}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                                    <button
-                                        type="button"
-                                        onClick={() => setPendingJuriId(null)}
-                                        className="min-h-11 rounded-xl px-5 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-                                    >
-                                        Tetap gunakan juri ini
-                                    </button>
-                                    <button
-                                        ref={confirmJuriButtonRef}
-                                        type="button"
-                                        onClick={() => applyJuriChange(pendingJuriId)}
-                                        className="min-h-11 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-purple-500/25 transition-colors hover:from-purple-700 hover:to-indigo-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300"
-                                    >
-                                        Ya, ganti juri
-                                    </button>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
             {/* Scoring Modal */}
             <AnimatePresence>
                 {isModalOpen && activePeserta && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-2 md:p-3">
                         <motion.div 
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onClick={() => setIsModalOpen(false)}
+                            onClick={requestCloseModal}
                             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
                         ></motion.div>
                         
@@ -750,128 +877,274 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden relative z-10 flex flex-col max-h-[90vh]"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label={`Form penilaian ${activePeserta.nama_lengkap}`}
+                            className="scoring-dialog relative z-10 flex h-[100dvh] max-h-none w-full flex-col overflow-hidden bg-slate-50 shadow-2xl sm:h-auto sm:max-h-[calc(100vh-1rem)] sm:max-w-5xl sm:rounded-3xl md:max-h-[calc(100vh-1.5rem)]"
                         >
                             {/* Modal Header */}
-                            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-5 md:p-6 text-white shrink-0 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-                                <div className="flex justify-between items-start relative z-10">
-                                    <div className="flex flex-col">
-                                        <div className="flex items-center gap-3 mb-1.5 flex-wrap">
-                                            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">{activePeserta.nama_lengkap}</h2>
-                                            <span className="px-2.5 py-1 bg-white/20 rounded-full text-xs font-bold backdrop-blur-md border border-white/20 shadow-sm">
-                                                No. {activePeserta.nomor_urut}
-                                            </span>
-                                            <span className="px-2.5 py-1 bg-white/10 rounded-full text-xs font-mono font-bold backdrop-blur-md border border-white/20 shadow-sm">
-                                                {activePeserta.no_peserta}
+                            <div className="shrink-0 border-b border-slate-200 bg-white px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] sm:px-5 sm:py-3 md:px-6">
+                                <div className="flex items-center gap-3 sm:hidden">
+                                    <button
+                                        type="button"
+                                        aria-label="Kembali ke daftar peserta"
+                                        onClick={requestCloseModal}
+                                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-[15px] text-slate-600 transition-colors active:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                                    >
+                                        <i className="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                                    </button>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className="text-[11px] font-semibold text-purple-600">Form Penilaian</p>
+                                            <span className="rounded-full bg-purple-50 px-2 py-1 text-[11px] font-semibold text-purple-700">
+                                                {filledCriteriaCount}/{activeCriteria.length} kriteria
                                             </span>
                                         </div>
-                                         <p className="text-purple-100 text-sm flex items-center gap-2 font-medium">
-                                            <span className="flex items-center gap-1.5"><i className="fa-solid fa-user-pen opacity-70"></i> {juriList.find(juri => juri.id === selectedJuriId)?.nama}</span>
-                                            <span className="text-white/30">&bull;</span>
-                                            <span className="flex items-center gap-1.5"><i className="fa-solid fa-masks-theater opacity-70"></i> {activePeserta.kategori}</span>
-                                            <span className="text-white/30">&bull;</span> 
-                                            <span className="flex items-center gap-1.5"><i className="fa-solid fa-school opacity-70"></i> {activePeserta.asal}</span>
+                                        <h2 className="truncate text-[17px] font-bold leading-6 tracking-tight text-slate-900">{activePeserta.nama_lengkap}</h2>
+                                        <p className="truncate text-xs font-normal text-slate-500">No. {activePeserta.nomor_urut} &middot; {activePeserta.no_peserta} &middot; {activePeserta.kategori}</p>
+                                    </div>
+                                </div>
+                                <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-slate-100 sm:hidden" aria-label={`${filledCriteriaCount} dari ${activeCriteria.length} kriteria telah diisi`}>
+                                    <div className="h-full rounded-full bg-purple-600 transition-[width] duration-200" style={{ width: `${activeCriteria.length ? (filledCriteriaCount / activeCriteria.length) * 100 : 0}%` }}></div>
+                                </div>
+
+                                <div className="hidden justify-between items-start gap-4 sm:flex">
+                                    <div className="min-w-0">
+                                        <p className="mb-0.5 text-[10px] font-bold uppercase tracking-widest text-purple-600">Form Penilaian</p>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <h2 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-900">{activePeserta.nama_lengkap}</h2>
+                                            <span className="rounded-lg bg-purple-50 px-2 py-1 text-xs font-bold text-purple-700">No. {activePeserta.nomor_urut}</span>
+                                            <span className="rounded-lg bg-slate-100 px-2 py-1 font-mono text-xs font-bold text-slate-600">{activePeserta.no_peserta}</span>
+                                        </div>
+                                        <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-slate-500">
+                                            <span><i className="fa-solid fa-user-pen mr-1.5" aria-hidden="true"></i>{juriList.find(juri => juri.id === selectedJuriId)?.nama}</span>
+                                            <span><i className="fa-solid fa-trophy mr-1.5" aria-hidden="true"></i>{activePeserta.kategori}</span>
+                                            <span><i className="fa-solid fa-school mr-1.5" aria-hidden="true"></i>{activePeserta.asal}</span>
                                         </p>
                                     </div>
-                                    <button 
-                                        onClick={() => setIsModalOpen(false)}
-                                        className="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors shrink-0"
+                                    <button
+                                        type="button"
+                                        aria-label="Tutup form penilaian"
+                                        onClick={requestCloseModal}
+                                        className="w-11 h-11 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl flex items-center justify-center transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                                     >
-                                        <i className="fa-solid fa-xmark text-lg"></i>
+                                        <i className="fa-solid fa-xmark text-lg" aria-hidden="true"></i>
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Modal Body Landscape */}
-                            <div className="flex flex-col lg:flex-row flex-1 overflow-hidden bg-white">
-                                {/* Left Column: Criteria */}
-                                <div className="w-full lg:w-[60%] p-5 md:p-6 overflow-y-auto border-b lg:border-b-0 lg:border-r border-slate-100 space-y-5 relative">
-                                    <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3.5 flex gap-2.5 text-blue-800 text-xs md:text-sm shadow-sm">
-                                        <i className="fa-solid fa-circle-info mt-0.5 text-blue-500"></i>
-                                        <p>Geser *slider* untuk memberikan nilai <strong>0 hingga 100</strong>. Bobot dihitung otomatis.</p>
-                                    </div>
+                            {/* Konten ringkas tanpa scrollbar untuk layar laptop */}
+                            <div className="scoring-modal-body flex-1 overflow-hidden px-4 py-3 sm:p-3 md:p-4">
+                                <div className="mx-auto max-w-4xl space-y-2.5">
+                                    {missingCriteriaIds.length > 0 ? (
+                                        <div role="alert" aria-live="assertive" className="flex items-start gap-2.5 rounded-xl border border-rose-300 bg-rose-50 px-3 py-2.5 text-[13px] leading-[18px] text-rose-800 sm:py-2 sm:text-xs">
+                                            <i className="fa-solid fa-triangle-exclamation mt-0.5 text-rose-500" aria-hidden="true"></i>
+                                            <div>
+                                                <p className="font-extrabold">Penilaian belum lengkap</p>
+                                                <p>Isi nilai: {activeCriteria.filter(criterion => missingCriteriaIds.includes(criterion.id)).map(criterion => criterion.label).join(', ')}.</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-start gap-2.5 rounded-xl border border-purple-100 bg-purple-50/70 px-3 py-2.5 text-[13px] leading-[18px] text-slate-600 sm:items-center sm:py-2 sm:text-xs">
+                                            <i className="fa-solid fa-circle-info text-purple-500" aria-hidden="true"></i>
+                                            <p>Isi nilai setiap kriteria dengan menggeser slider atau mengetik angka. Total dihitung otomatis sesuai bobot.</p>
+                                        </div>
+                                    )}
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {(criteriaConfig[activePeserta.kategori] || criteriaConfig['default']).map((c, index, arr) => {
-                                            const isLastOdd = index === arr.length - 1 && arr.length % 2 !== 0;
+                                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                                        {activeCriteria.map((c, index) => {
+                                            const maxScore = activePeserta.kategori === 'Tendangan Penalti' ? 3 : 100;
+                                            const currentScore = tempNilai[c.id] || 0;
+                                            const guideScores = maxScore === 3 ? [0, 1, 2, 3] : [0, 25, 50, 75, 100];
+                                            const criteriaCount = activeCriteria.length;
+                                            const isMhqLastCriterion = activePeserta.kategori === 'MHQ' && index === criteriaCount - 1;
+                                            const placeBesideTotal = criteriaCount % 2 === 0 && index === criteriaCount - 1;
+                                            const isMissing = missingCriteriaIds.includes(c.id);
+                                            const accent = criteriaAccentStyles[index % criteriaAccentStyles.length];
                                             return (
-                                            <div key={c.id} className={`group bg-white p-4 rounded-xl border border-slate-200 hover:border-purple-300 transition-all shadow-sm hover:shadow-md ${isLastOdd ? 'md:col-span-2' : ''}`}>
-                                                <div className="flex justify-between mb-4 items-start">
-                                                    <div className="flex flex-col pr-3">
-                                                        <label className="font-bold text-slate-800 flex items-start gap-2 text-[14px]">
-                                                            <span className="w-6 h-6 rounded-md bg-purple-50 flex items-center justify-center shrink-0">
-                                                                <i className={`fa-solid ${c.icon} text-purple-600 text-[11px]`}></i>
-                                                            </span>
-                                                            <span className="leading-tight pt-0.5">{c.label}</span>
-                                                        </label>
-                                                        <span className="text-[11px] text-slate-500 mt-2 leading-relaxed pl-8">
-                                                            {c.indicator}
+                                                <div
+                                                    key={c.id}
+                                                    id={`criterion-${c.id}`}
+                                                    className={`rounded-[14px] border border-l-4 bg-white p-2.5 shadow-sm transition-colors sm:rounded-xl sm:border-l sm:p-3 ${isMissing ? 'border-rose-400 border-l-rose-500 ring-2 ring-rose-100 sm:border-l-rose-400' : `border-slate-200 ${accent.border}`} ${isMhqLastCriterion ? 'sm:col-start-1 sm:row-start-3' : placeBesideTotal ? 'sm:col-start-1' : ''}`}
+                                                >
+                                                    <div className="flex items-center gap-2 sm:gap-2.5">
+                                                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold sm:h-8 sm:w-8 sm:bg-purple-50 sm:text-[13px] sm:text-purple-600 ${accent.soft} ${accent.text}`}>
+                                                            {index + 1}
                                                         </span>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 sm:flex-nowrap sm:justify-between sm:gap-2">
+                                                                <label htmlFor={`nilai-${c.id}`} className="text-sm font-semibold leading-[18px] text-slate-900 sm:text-[13px] sm:font-extrabold sm:leading-tight sm:text-slate-800">{c.label}</label>
+                                                                <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase sm:rounded-md sm:font-extrabold ${accent.soft} ${accent.text}`}>Bobot {c.weight}%</span>
+                                                                {isMissing && <span className="shrink-0 rounded bg-rose-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-rose-600 sm:hidden">Belum diisi</span>}
+                                                            </div>
+                                                            <p className="mt-0.5 hidden truncate text-[10px] text-slate-500 sm:block" title={c.indicator}>{c.indicator}</p>
+                                                        </div>
+                                                        <div className="flex shrink-0 items-center gap-1">
+                                                            <input
+                                                                id={`nilai-${c.id}`}
+                                                                type="number"
+                                                                inputMode="numeric"
+                                                                min={0}
+                                                                max={maxScore}
+                                                                value={currentScore}
+                                                                onChange={(event) => {
+                                                                    const value = Math.min(maxScore, Math.max(0, Number(event.target.value) || 0));
+                                                                    setTempNilai(previous => ({ ...previous, [c.id]: value }));
+                                                                    markCriterionFilled(c.id);
+                                                                }}
+                                                                className="h-11 w-16 rounded-xl border-2 border-slate-200 bg-slate-50 text-center text-xl font-bold text-slate-900 outline-none focus:border-purple-400 focus:bg-white focus:ring-2 focus:ring-purple-100 sm:h-10 sm:rounded-lg sm:font-black sm:text-slate-800"
+                                                            />
+                                                            <span className="text-[10px] font-bold text-slate-400">/{maxScore}</span>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex flex-col items-end justify-start min-w-[65px] shrink-0">
-                                                        <span className="font-black text-3xl text-slate-800 leading-none tracking-tight">{tempNilai[c.id] || 0}</span>
-                                                        <span className="text-[9px] md:text-[10px] text-slate-400 font-bold mt-1.5 uppercase tracking-wide">
-                                                            Bobot {c.weight}% <br/>
-                                                            <span className="text-purple-600">{( ((tempNilai[c.id] || 0) * c.weight) / 100 ).toFixed(1)}</span>
-                                                        </span>
+                                                    <p className="mt-2 text-xs leading-[18px] text-slate-600 sm:hidden">{c.indicator}</p>
+                                                    <div className="mt-1 flex min-h-9 items-center sm:mt-2.5 sm:min-h-0">
+                                                        <input
+                                                            aria-label={`Nilai ${c.label}`}
+                                                            type="range"
+                                                            min={0}
+                                                            max={maxScore}
+                                                            step={1}
+                                                            value={currentScore}
+                                                            onInput={(event) => {
+                                                                const value = Number(event.currentTarget.value);
+                                                                queueSliderValue(c.id, value);
+                                                            }}
+                                                            onPointerUp={(event) => {
+                                                                finishSliderInteraction(c.id, Number(event.currentTarget.value), guideScores, maxScore);
+                                                            }}
+                                                            onKeyUp={(event) => {
+                                                                finishSliderInteraction(c.id, Number(event.currentTarget.value), guideScores, maxScore);
+                                                            }}
+                                                            className="scoring-range"
+                                                            style={{ '--slider-color': accent.color, '--slider-progress': `${(currentScore / maxScore) * 100}%` } as React.CSSProperties}
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-start justify-between gap-1 px-0.5 sm:mt-1 sm:gap-0">
+                                                        {guideScores.map(score => {
+                                                            const isActiveGuide = currentScore === score;
+                                                            return (
+                                                                <button
+                                                                    key={score}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setTempNilai(previous => ({ ...previous, [c.id]: score }));
+                                                                        markCriterionFilled(c.id);
+                                                                    }}
+                                                                    aria-label={`Atur ${c.label} menjadi ${score}`}
+                                                                    className={`min-h-10 flex-1 touch-manipulation rounded-lg px-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 sm:min-h-0 sm:min-w-7 sm:flex-none sm:rounded-md sm:py-0.5 sm:text-[9px] sm:font-bold ${isActiveGuide ? `${accent.soft} ${accent.text} sm:bg-purple-100 sm:text-purple-700` : 'bg-slate-50 text-slate-500 sm:bg-transparent sm:text-slate-400'}`}
+                                                                >
+                                                                    {score}
+                                                                </button>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
-                                                <input 
-                                                    type="range" 
-                                                    min="0" max="100" 
-                                                    value={tempNilai[c.id] || 0}
-                                                    onChange={(e) => setTempNilai({...tempNilai, [c.id]: parseInt(e.target.value)})}
-                                                    className="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-purple-600 outline-none focus:ring-2 focus:ring-purple-500/30 hover:bg-slate-200 transition-colors"
-                                                />
-                                            </div>
                                             );
                                         })}
-                                    </div>
-                                </div>
 
-                                {/* Right Column: Notes & Total */}
-                                <div className="w-full lg:w-[40%] flex flex-col bg-slate-50">
-                                    <div className="flex-1 p-5 md:p-6 overflow-y-auto">
-                                        <label className="font-bold text-slate-800 flex items-center gap-2 mb-3.5 text-[14px]">
-                                            <span className="w-7 h-7 rounded-lg bg-slate-200/50 flex items-center justify-center shrink-0">
-                                                <i className="fa-solid fa-pen-nib text-slate-500 text-xs"></i>
+                                        <div className={`hidden items-center justify-between rounded-xl border border-purple-200 bg-purple-50/70 p-4 shadow-sm sm:flex ${activePeserta.kategori === 'MHQ' ? 'sm:col-start-2 sm:row-start-2 sm:row-span-2' : ''}`}>
+                                            <div className="flex items-center gap-3">
+                                                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-purple-600 shadow-sm">
+                                                    <i className="fa-solid fa-calculator" aria-hidden="true"></i>
+                                                </span>
+                                                <div>
+                                                    <p className="text-[10px] font-extrabold uppercase tracking-widest text-purple-500">Hasil Otomatis</p>
+                                                    <p className="text-sm font-extrabold text-slate-800">Total Nilai</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-end gap-1">
+                                                <span className="text-4xl font-black leading-none text-purple-700">
+                                                    {Math.round(activeCriteria.reduce((acc, c) => acc + ((tempNilai[c.id] || 0) * c.weight / 100), 0))}
+                                                </span>
+                                                <span className="pb-0.5 text-[10px] font-bold text-purple-400">/{activePeserta.kategori === 'Tendangan Penalti' ? 3 : 100}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-[14px] border border-slate-200 bg-white p-2.5 shadow-sm sm:rounded-xl sm:p-3">
+                                        <button type="button" onClick={() => setIsMobileNotesOpen(open => !open)} aria-expanded={isMobileNotesOpen} aria-controls="catatan-juri" className="flex min-h-10 w-full items-center justify-between gap-3 rounded-xl px-1 text-left sm:hidden">
+                                            <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                                                <i className="fa-solid fa-pen-nib text-purple-500" aria-hidden="true"></i>
+                                                Catatan Juri <span className="font-medium text-slate-400">(opsional)</span>
                                             </span>
-                                            Catatan Juri
+                                            <i className={`fa-solid fa-chevron-down text-xs text-slate-400 transition-transform ${isMobileNotesOpen ? 'rotate-180' : ''}`} aria-hidden="true"></i>
+                                        </button>
+                                        <label htmlFor="catatan-juri" className="hidden items-center gap-2 text-sm font-extrabold text-slate-800 sm:flex">
+                                            <i className="fa-solid fa-pen-nib text-purple-500" aria-hidden="true"></i>
+                                            Catatan Juri <span className="font-medium text-slate-400">(opsional)</span>
                                         </label>
                                         <textarea
+                                            id="catatan-juri"
                                             value={tempCatatan}
-                                            onChange={(e) => setTempCatatan(e.target.value)}
-                                            placeholder="Tulis catatan, evaluasi, atau komentar..."
-                                            className="w-full p-4 bg-white border border-slate-200 rounded-xl text-[13px] leading-relaxed focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 min-h-[120px] lg:min-h-[200px] h-full resize-none transition-all shadow-sm text-slate-700 placeholder:text-slate-400"
-                                        ></textarea>
-                                    </div>
-                                    
-                                    <div className="p-5 md:p-6 bg-white border-t border-slate-200/60 flex flex-col items-center justify-center text-center">
-                                        <span className="font-extrabold text-slate-400 uppercase tracking-[0.2em] text-[10px] mb-1.5">Total Nilai Akhir</span>
-                                        <span className="text-[64px] font-black bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent drop-shadow-sm leading-none">
-                                            {Math.round((criteriaConfig[activePeserta.kategori] || criteriaConfig['default']).reduce((acc, c) => acc + ((tempNilai[c.id] || 0) * c.weight / 100), 0))}
-                                        </span>
-                                        <span className="text-[11px] text-slate-400 font-medium mt-3 px-3.5 py-1 bg-slate-100 rounded-full">Dihitung otomatis dari bobot</span>
+                                            onChange={(event) => setTempCatatan(event.target.value)}
+                                            placeholder="Tulis catatan singkat untuk peserta..."
+                                            rows={2}
+                                            className={`${isMobileNotesOpen ? 'block' : 'hidden'} mt-2 w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm leading-relaxed text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-purple-400 focus:bg-white focus:ring-2 focus:ring-purple-100 sm:block sm:py-2 sm:text-xs`}
+                                        />
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Modal Footer */}
-                            <div className="p-4 md:px-6 md:py-4 border-t border-slate-100 bg-white flex justify-end gap-3 shrink-0">
-                                <button 
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="px-5 py-2.5 rounded-xl font-bold text-[14px] text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                                >
-                                    Batal
-                                </button>
-                                <button 
-                                    onClick={handleSaveScore}
-                                    className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-[14px] shadow-md shadow-purple-500/20 transition-all active:scale-[0.98] flex items-center gap-2"
-                                >
-                                    <i className="fa-solid fa-check"></i>
-                                    Simpan Penilaian
-                                </button>
+                            {/* Aksi selalu terlihat */}
+                            <div className="relative z-20 min-h-16 shrink-0 border-t border-slate-200 bg-white px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:min-h-0 sm:py-3 md:px-6">
+                                <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 sm:justify-end">
+                                    <div className="flex items-baseline gap-2 sm:hidden">
+                                        <p className="text-xs font-medium text-slate-500">Total</p>
+                                        <p className="text-[22px] font-bold leading-none text-purple-700">{Math.round(activeCriteria.reduce((acc, c) => acc + ((tempNilai[c.id] || 0) * c.weight / 100), 0))}<span className="ml-1 text-[11px] font-medium text-purple-400">/100</span></p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={requestCloseModal}
+                                            className="hidden min-h-11 flex-1 rounded-xl px-5 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 sm:block sm:flex-none"
+                                        >
+                                            Batal
+                                        </button>
+                                        <button type="button" onClick={requestSaveConfirmation} disabled={isSaving}
+                                            className="min-h-11 flex-1 touch-manipulation rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-purple-500/20 transition-colors active:from-purple-700 active:to-indigo-700 disabled:opacity-50 sm:flex-none sm:px-6 sm:py-2.5 sm:font-bold sm:hover:from-purple-700 sm:hover:to-indigo-700">
+                                            <i className="fa-solid fa-check mr-2" aria-hidden="true"></i>
+                                            {isSaving ? 'Menyimpan...' : 'Simpan Nilai'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {showDiscardConfirm && (
+                    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+                        <motion.button type="button" aria-label="Kembali ke form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowDiscardConfirm(false)} className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm" />
+                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }} role="alertdialog" aria-modal="true" className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><i className="fa-solid fa-triangle-exclamation"></i></span>
+                            <h3 className="mt-4 text-lg font-extrabold text-slate-900">Perubahan belum disimpan</h3>
+                            <p className="mt-1 text-sm leading-relaxed text-slate-500">Nilai atau catatan yang baru diubah akan hilang jika form ditutup.</p>
+                            <div className="mt-5 flex justify-end gap-2">
+                                <button type="button" onClick={() => setShowDiscardConfirm(false)} className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100">Lanjut Mengisi</button>
+                                <button type="button" onClick={() => { setShowDiscardConfirm(false); setIsModalOpen(false); }} className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-rose-700">Buang Perubahan</button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {showSaveConfirm && (
+                    <div className="fixed inset-0 z-[85] flex items-center justify-center p-4">
+                        <motion.button type="button" aria-label="Batalkan penyimpanan" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowSaveConfirm(false)} className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm" />
+                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }} role="alertdialog" aria-modal="true" className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-100 text-purple-700"><i className="fa-solid fa-clipboard-check"></i></span>
+                            <h3 className="mt-4 text-lg font-extrabold text-slate-900">Simpan penilaian?</h3>
+                            <p className="mt-1 text-sm leading-relaxed text-slate-500">
+                                Nilai akhir peserta ini adalah <strong className="text-slate-800">{Math.round(activeCriteria.reduce((total, criterion) => total + ((tempNilai[criterion.id] || 0) * criterion.weight / 100), 0))}</strong>.
+                                {activeCriteria.some(criterion => touchedCriteria.has(criterion.id) && tempNilai[criterion.id] === 0) && ' Terdapat kriteria bernilai 0, pastikan nilai tersebut memang benar.'}
+                            </p>
+                            <div className="mt-5 flex justify-end gap-2">
+                                <button type="button" onClick={() => setShowSaveConfirm(false)} className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100">Periksa Lagi</button>
+                                <button type="button" onClick={() => { setShowSaveConfirm(false); void handleSaveScore(); }} className="rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-purple-700">Ya, Simpan</button>
                             </div>
                         </motion.div>
                     </div>

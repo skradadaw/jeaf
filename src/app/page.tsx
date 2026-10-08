@@ -114,6 +114,10 @@ export default function Home() {
                     <a href="#hadiah" className="hover:text-sky-600 transition-colors">Hadiah & Trofi</a>
                     <a href="#rundown" className="hover:text-sky-600 transition-colors">Peta Rute</a>
                     <a href="#faq" className="hover:text-sky-600 transition-colors">FAQ</a>
+                    <Link href="/panitia/juri-login" className="flex items-center gap-1.5 rounded-full bg-purple-50 px-3 py-2 text-purple-700 transition-colors hover:bg-purple-100">
+                        <i className="fa-solid fa-user-pen text-xs"></i>
+                        Login Juri
+                    </Link>
                     <Link href="/panitia/login" className="hover:text-amber-500 transition-colors flex items-center gap-1.5 border-l border-slate-200 pl-6">
                         <i className="fa-solid fa-lock text-xs"></i>
                         Login Panitia
@@ -179,6 +183,14 @@ export default function Home() {
                 </a>
 
                 <div className="h-px bg-slate-100 my-2 mx-4"></div>
+
+                <Link href="/panitia/juri-login" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-purple-50 text-purple-700 font-bold active:bg-purple-100 transition-colors">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shadow-inner"><i className="fa-solid fa-user-pen text-sm"></i></div>
+                        <span className="text-[15px]">Login Juri</span>
+                    </div>
+                    <i className="fa-solid fa-chevron-right text-xs text-purple-300"></i>
+                </Link>
 
                 <Link href="/panitia/login" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-between px-4 py-3.5 rounded-2xl text-slate-600 font-semibold active:bg-slate-50 transition-colors">
                     <div className="flex items-center gap-3.5">
@@ -917,7 +929,7 @@ export default function Home() {
                                 className="overflow-hidden"
                             >
                                 <div className="pt-3 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
-                                    Pendaftaran dapat dilakukan secara praktis secara online melalui tombol "Daftar Sekarang" di website ini. <strong>Seluruh cabang lomba 100% Gratis (tidak dipungut biaya)</strong>. Silakan hubungi Admin kami jika ada kendala saat mengisi formulir pendaftaran.
+                                    Pendaftaran dapat dilakukan secara praktis secara online melalui tombol &ldquo;Daftar Sekarang&rdquo; di website ini. <strong>Seluruh cabang lomba 100% Gratis (tidak dipungut biaya)</strong>. Silakan hubungi Admin kami jika ada kendala saat mengisi formulir pendaftaran.
                                 </div>
                             </motion.div>
                         )}
