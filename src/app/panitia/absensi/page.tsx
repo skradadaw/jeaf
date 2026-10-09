@@ -91,7 +91,12 @@ export default function LiveAttendancePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [updatingAttendanceIds, setUpdatingAttendanceIds] = useState<Set<string>>(() => new Set());
-  const [animatingAttendanceRows, setAnimatingAttendanceRows] = useState<Record<string, AttendanceFilter>>({});
+  const [animatingAttendanceRows, setAnimatingAttendanceRows] = useState<Record<string, {
+    filter: AttendanceFilter;
+    phase: 'pending' | 'exit';
+    originalStatus: string | null;
+    originalTime: string | null;
+  }>>({});
   const animationTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const shouldReduceMotion = useReducedMotion();
 
@@ -162,10 +167,18 @@ export default function LiveAttendancePage() {
     const nextAttendanceTime = nextStatus === 'Hadir' ? new Date().toISOString() : null;
     const previousStatus = registration.status_kehadiran;
     const previousAttendanceTime = registration.waktu_kehadiran;
+    const leavesCurrentTab = (filter === 'hadir' && nextStatus !== 'Hadir')
+      || (filter === 'belum' && nextStatus === 'Hadir');
 
     const previousTimer = animationTimersRef.current.get(registration.id);
     if (previousTimer) clearTimeout(previousTimer);
-    setAnimatingAttendanceRows((current) => ({ ...current, [registration.id]: filter }));
+    const originalPosition = {
+      filter,
+      phase: 'pending' as const,
+      originalStatus: registration.status_kehadiran,
+      originalTime: registration.waktu_kehadiran,
+    };
+    setAnimatingAttendanceRows((current) => ({ ...current, [registration.id]: originalPosition }));
 
     setUpdatingAttendanceIds((current) => new Set(current).add(registration.id));
     setRegistrations((current) => current.map((item) => item.id === registration.id
@@ -195,15 +208,30 @@ export default function LiveAttendancePage() {
         ? `${registration.nama_anak} ditandai hadir.`
         : `Kehadiran ${registration.nama_anak} dibatalkan.`);
 
-      const animationTimer = setTimeout(() => {
+      if (leavesCurrentTab) {
+        setAnimatingAttendanceRows((current) => ({
+          ...current,
+        [registration.id]: { ...originalPosition, phase: 'exit' },
+        }));
+      } else {
         setAnimatingAttendanceRows((current) => {
           const next = { ...current };
           delete next[registration.id];
           return next;
         });
-        animationTimersRef.current.delete(registration.id);
-      }, shouldReduceMotion ? 0 : 650);
-      animationTimersRef.current.set(registration.id, animationTimer);
+      }
+
+      if (leavesCurrentTab) {
+        const animationTimer = setTimeout(() => {
+          setAnimatingAttendanceRows((current) => {
+            const next = { ...current };
+            delete next[registration.id];
+            return next;
+          });
+          animationTimersRef.current.delete(registration.id);
+        }, shouldReduceMotion ? 0 : 480);
+        animationTimersRef.current.set(registration.id, animationTimer);
+      }
     }
 
     setUpdatingAttendanceIds((current) => {
@@ -229,7 +257,7 @@ export default function LiveAttendancePage() {
         const isPresent = registration.status_kehadiran === 'Hadir';
         const matchesStatus = (filter === 'hadir' && isPresent)
           || (filter === 'belum' && !isPresent)
-          || animatingAttendanceRows[registration.id] === filter;
+          || animatingAttendanceRows[registration.id]?.filter === filter;
         const matchesQuery = !normalizedQuery
           || registration.nama_anak.toLocaleLowerCase('id-ID').includes(normalizedQuery)
           || (registration.no_peserta || '').toLocaleLowerCase('id-ID').includes(normalizedQuery)
@@ -237,12 +265,18 @@ export default function LiveAttendancePage() {
         return matchesStatus && matchesQuery;
       })
       .sort((first, second) => {
-        const firstPresent = first.status_kehadiran === 'Hadir';
-        const secondPresent = second.status_kehadiran === 'Hadir';
+        const firstAnimation = animatingAttendanceRows[first.id];
+        const secondAnimation = animatingAttendanceRows[second.id];
+        const firstStatus = firstAnimation?.filter === filter ? firstAnimation.originalStatus : first.status_kehadiran;
+        const secondStatus = secondAnimation?.filter === filter ? secondAnimation.originalStatus : second.status_kehadiran;
+        const firstPresent = firstStatus === 'Hadir';
+        const secondPresent = secondStatus === 'Hadir';
         if (firstPresent !== secondPresent) return firstPresent ? -1 : 1;
         if (firstPresent && secondPresent) {
-          return new Date(second.waktu_kehadiran || second.created_at).getTime()
-            - new Date(first.waktu_kehadiran || first.created_at).getTime();
+          const firstTime = firstAnimation?.filter === filter ? firstAnimation.originalTime : first.waktu_kehadiran;
+          const secondTime = secondAnimation?.filter === filter ? secondAnimation.originalTime : second.waktu_kehadiran;
+          return new Date(secondTime || second.created_at).getTime()
+            - new Date(firstTime || first.created_at).getTime();
         }
         return (first.no_peserta || '').localeCompare(second.no_peserta || '', 'id', { numeric: true });
       });
@@ -316,10 +350,10 @@ export default function LiveAttendancePage() {
                   role="tab"
                   aria-selected={filter === option.value}
                   onClick={() => setFilter(option.value)}
-                  className={`flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-lg px-2 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 sm:text-sm ${filter === option.value ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  className={`flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-lg border px-2 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 sm:text-sm ${filter === option.value ? 'border-emerald-700 bg-emerald-600 text-white shadow-sm' : 'border-transparent bg-transparent text-slate-600 hover:bg-white/80 hover:text-slate-900'}`}
                 >
                   <span className="truncate">{option.label}</span>
-                  <span className={`inline-flex min-w-7 shrink-0 items-center justify-center rounded-full px-2 py-1 text-[11px] font-bold leading-none tabular-nums ${filter === option.value ? 'bg-emerald-50 text-emerald-700' : 'bg-white text-slate-500'}`}>{option.count}</span>
+                  <span className={`inline-flex min-w-7 shrink-0 items-center justify-center rounded-full px-2 py-1 text-[11px] font-bold leading-none tabular-nums ${filter === option.value ? 'bg-white text-emerald-700' : 'bg-slate-200 text-slate-700'}`}>{option.count}</span>
                 </button>
               ))}
             </div>
@@ -351,10 +385,11 @@ export default function LiveAttendancePage() {
               {visibleRegistrations.map((registration) => {
                   const isPresent = registration.status_kehadiran === 'Hadir';
                   const attendanceTime = formatAttendanceTime(registration.waktu_kehadiran);
+                  const exitPending = animatingAttendanceRows[registration.id]?.phase === 'exit';
                   return (
                   <article
                     key={registration.id}
-                    className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-[0_1px_3px_rgba(15,23,42,0.05)] sm:p-4"
+                    className={`rounded-xl border border-slate-200 bg-white p-3.5 shadow-[0_1px_3px_rgba(15,23,42,0.05)] transition-[opacity,transform] duration-[480ms] ease-in-out sm:p-4 ${exitPending ? 'translate-x-2 opacity-0' : ''}`}
                   >
                     <div className="flex items-start gap-3">
                       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm ${isPresent ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
@@ -404,10 +439,11 @@ export default function LiveAttendancePage() {
                   {visibleRegistrations.map((registration) => {
                       const isPresent = registration.status_kehadiran === 'Hadir';
                       const attendanceTime = formatAttendanceTime(registration.waktu_kehadiran);
+                      const exitPending = animatingAttendanceRows[registration.id]?.phase === 'exit';
                       return (
                       <tr
                         key={registration.id}
-                        className="hover:bg-slate-50/70"
+                        className={`transition-opacity duration-[480ms] ease-in-out ${exitPending ? 'opacity-0' : 'hover:bg-slate-50/70'}`}
                       >
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-3">
