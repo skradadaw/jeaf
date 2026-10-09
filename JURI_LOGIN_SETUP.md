@@ -36,10 +36,39 @@ Akun yang diproses:
 
 Jalankan query **Akun juri terhubung** pada `DATABASE_SETUP.md`. Semua akun yang digunakan harus memiliki `user_id`.
 
+## Penggantian juri MHQ darurat
+
+Penggantian petugas mempertahankan kode, ruangan, ID juri, dan seluruh nilai yang sudah tersimpan. Akun lama dilepas dari kursi juri sehingga sesi lama tidak lagi dapat membaca atau mengubah penilaian.
+
+Isi variabel berikut dari PowerShell pada root project:
+
+```powershell
+$env:NEXT_PUBLIC_SUPABASE_URL='PROJECT_URL_ANDA'
+$env:SUPABASE_SERVICE_ROLE_KEY='SERVICE_ROLE_KEY_ANDA'
+$env:JURI_REPLACEMENT_CODE='MHQ-J1'
+$env:JURI_REPLACEMENT_NAME='Nama Juri Pengganti'
+$env:JURI_REPLACEMENT_PIN='123456'
+$env:JURI_REPLACEMENT_DRY_RUN='true'
+npm.cmd run replace:juri-mhq
+```
+
+Periksa kode, ruangan, nama lama, dan nama pengganti dari hasil dry run. Jika sudah benar, jalankan pergantian sebenarnya:
+
+```powershell
+$env:JURI_REPLACEMENT_DRY_RUN='false'
+npm.cmd run replace:juri-mhq
+```
+
+Juri pengganti tetap memilih kode juri yang sama pada halaman login dan menggunakan PIN baru. Jangan membuat kode juri kelima atau memindahkan ruangan ketika acara sedang berlangsung.
+
 Setelah verifikasi selesai, hapus environment variable sensitif dari sesi PowerShell:
 
 ```powershell
 Remove-Item Env:SUPABASE_SERVICE_ROLE_KEY
+Remove-Item Env:JURI_REPLACEMENT_CODE
+Remove-Item Env:JURI_REPLACEMENT_NAME
+Remove-Item Env:JURI_REPLACEMENT_PIN
+Remove-Item Env:JURI_REPLACEMENT_DRY_RUN
 ```
 
 Jangan menaruh `SUPABASE_SERVICE_ROLE_KEY` pada `.env` frontend, variabel `NEXT_PUBLIC_*`, source code, commit, atau membagikannya kepada juri.

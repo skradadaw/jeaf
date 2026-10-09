@@ -30,6 +30,7 @@ type Juri = {
     kode: string;
     nama: string;
     user_id?: string;
+    ruangan_mhq?: number | null;
 };
 
 type NilaiJuri = {
@@ -65,6 +66,7 @@ type DashboardParticipant = {
     nama_anak: string;
     asal_sekolah: string;
     cabang_lomba: string;
+    ruangan_mhq?: number | null;
     jumlah_juri: number;
     jumlah_selesai: number;
     nilai_akhir: number | null;
@@ -76,6 +78,16 @@ type DashboardPayload = {
     criteria: DashboardCriteria[];
     juries: Juri[];
     participants: DashboardParticipant[];
+    room_settings?: RoomSettings | null;
+};
+
+type RoomSettings = {
+    pembagian_dikunci: boolean;
+    jumlah_peserta_awal: number | null;
+    batas_ruang_1: number | null;
+    jumlah_ruang_1: number;
+    jumlah_ruang_2: number;
+    belum_dibagi: number;
 };
 
 const getParticipantSequence = (participantCode: string | null | undefined, fallback: number) => {
@@ -172,6 +184,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
     const [isAdmin, setIsAdmin] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
     const [activeCriteria, setActiveCriteria] = useState<CriteriaItem[]>([]);
+    const [roomSettings, setRoomSettings] = useState<RoomSettings | null>(null);
     const hasLoadedOnce = useRef(false);
     const realtimeDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
     const pendingRealtimeParticipantIds = useRef<Set<string>>(new Set());
@@ -210,6 +223,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
             if (controller.signal.aborted) return;
             if (!dashboardError && dashboardData) {
                 const dashboard = dashboardData as unknown as DashboardPayload;
+                setRoomSettings(dashboard.room_settings || null);
                 const presentationCriteria = criteriaConfig[currentCategoryName] || criteriaConfig.default;
                 const resolvedCriteria: CriteriaItem[] = (dashboard.criteria || []).map(row => {
                     const presentation = presentationCriteria.find(item => item.id === row.kode);
@@ -247,6 +261,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                         nama_lengkap: participant.nama_anak,
                         asal: participant.asal_sekolah,
                         kategori: participant.cabang_lomba,
+                        ruangan_mhq: participant.ruangan_mhq,
                         status_nilai: lengkap
                             ? 'Penilaian Lengkap'
                             : participant.jumlah_selesai > 0
@@ -258,6 +273,22 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                     };
                 }));
                 hasLoadedOnce.current = true;
+                setLoading(false);
+                return;
+            }
+
+            // MHQ wajib memakai RPC yang sadar ruangan. Fallback lama tidak memiliki
+            // konteks ruangan dan dapat menampilkan 45 peserta atau menghitung 4 juri.
+            // Lebih aman menghentikan pemuatan daripada menyajikan nilai yang keliru.
+            if (currentCategoryName === 'MHQ') {
+                setRoomSettings(null);
+                setPesertaList([]);
+                setJuriList([]);
+                setSelectedJuriId('');
+                setDatabaseError(
+                    'Data penilaian MHQ tidak dapat dimuat dengan aman. Pastikan supabase_mhq_ruangan.sql sudah terpasang, lalu muat ulang halaman.'
+                    + (dashboardError?.message ? ` Detail: ${dashboardError.message}` : '')
+                );
                 setLoading(false);
                 return;
             }
@@ -526,8 +557,13 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
     };
 
     // --- Filtering ---
+    const selectedJuriRoom = juriList.find(juri => juri.id === selectedJuriId)?.ruangan_mhq;
+    const scopedPeserta = useMemo(() => currentCategoryName === 'MHQ' && selectedJuriRoom
+        ? pesertaList.filter(p => p.ruangan_mhq === selectedJuriRoom)
+        : pesertaList, [currentCategoryName, pesertaList, selectedJuriRoom]);
+
     const filteredPeserta = useMemo(() => {
-        return pesertaList.filter(p => {
+        return scopedPeserta.filter(p => {
             const normalizedQuery = searchQuery.toLowerCase();
             const hasMyScore = (p.nilai_juri as NilaiJuri[]).some(score => score.juri_id === selectedJuriId);
             const isWaitingForOthers = hasMyScore && p.status_nilai !== 'Penilaian Lengkap';
@@ -539,20 +575,20 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                 || (filterStatus === 'Menunggu Juri Lain' && isWaitingForOthers);
             return matchSearch && matchStatus;
         });
-    }, [pesertaList, searchQuery, filterStatus, selectedJuriId]);
+    }, [scopedPeserta, searchQuery, filterStatus, selectedJuriId]);
 
     // --- Stats ---
-    const stats = useMemo(() => ({ total: pesertaList.length }), [pesertaList]);
+    const stats = useMemo(() => ({ total: scopedPeserta.length }), [scopedPeserta]);
     const filterTabs = useMemo(() => {
-        const scoredByMe = pesertaList.filter(p =>
+        const scoredByMe = scopedPeserta.filter(p =>
             (p.nilai_juri as NilaiJuri[]).some(score => score.juri_id === selectedJuriId)
         );
         return [
-            { label: 'Belum Dinilai', count: pesertaList.length - scoredByMe.length },
+            { label: 'Belum Dinilai', count: scopedPeserta.length - scoredByMe.length },
             { label: 'Sudah Dinilai', count: scoredByMe.length },
             { label: 'Menunggu Juri Lain', count: scoredByMe.filter(p => p.status_nilai !== 'Penilaian Lengkap').length },
         ];
-    }, [pesertaList, selectedJuriId]);
+    }, [scopedPeserta, selectedJuriId]);
 
     // --- Handlers ---
     const openScoringModal = (peserta: any) => {
@@ -825,7 +861,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                         <span className="sm:hidden">Penilaian {currentCategoryName}</span>
                         <span className="hidden sm:inline">{juriList.find(juri => juri.id === selectedJuriId)?.nama || 'Memuat identitas juri...'}</span>
                     </h2>
-                    <p className="mt-1 hidden text-sm text-purple-100 sm:block">{isAdmin ? 'Pilih juri jika perlu memasukkan atau memperbaiki nilai atas nama juri tersebut.' : 'Identitas dan cabang lomba dipilih otomatis dari akun yang masuk.'}</p>
+                    <p className="mt-1 hidden text-sm text-purple-100 sm:block">{isAdmin ? 'Pilih juri jika perlu memasukkan atau memperbaiki nilai atas nama juri tersebut.' : 'Identitas, cabang lomba, dan ruangan dipilih otomatis dari akun yang masuk.'}</p>
                 </div>
                 <div className="flex w-full items-end gap-2.5 rounded-xl border border-white/40 bg-white px-3 py-2.5 text-slate-800 shadow-lg shadow-indigo-950/10 md:w-[23rem] md:rounded-2xl">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
@@ -840,7 +876,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                                     onChange={setSelectedJuriId}
                                     options={juriList.map(juri => ({
                                         value: juri.id,
-                                        label: juri.nama,
+                                        label: `${juri.nama}${juri.ruangan_mhq ? ` · Ruang ${juri.ruangan_mhq}` : ''}`,
                                         icon: 'fa-solid fa-user-tie',
                                         color: 'bg-purple-100 text-purple-600',
                                     }))}
@@ -851,7 +887,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                                 />
                             </div>
                         ) : (
-                            <><span className="block truncate text-sm font-extrabold">{juriList.find(juri => juri.id === selectedJuriId)?.nama || 'Memuat akun...'}</span><span className="block font-mono text-[10px] text-slate-400">{juriList.find(juri => juri.id === selectedJuriId)?.kode}</span></>
+                            <><span className="block truncate text-sm font-extrabold">{juriList.find(juri => juri.id === selectedJuriId)?.nama || 'Memuat akun...'}</span><span className="block font-mono text-[10px] text-slate-400">{juriList.find(juri => juri.id === selectedJuriId)?.kode}{selectedJuriRoom ? ` · Ruang ${selectedJuriRoom}` : ''}</span></>
                         )}
                     </span>
                     <button type="button" onClick={handleLogoutJuri} aria-label="Keluar akun juri"
@@ -861,6 +897,26 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                 </div>
             </div>
 
+            {currentCategoryName === 'MHQ' && roomSettings && (
+                <section className={`rounded-2xl border p-4 shadow-sm ${roomSettings.pembagian_dikunci ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+                    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                        <div className="flex items-start gap-3">
+                            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${roomSettings.pembagian_dikunci ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                <i className={`fa-solid ${roomSettings.pembagian_dikunci ? 'fa-lock' : 'fa-door-open'}`} aria-hidden="true"></i>
+                            </span>
+                            <div>
+                                <h3 className="text-sm font-extrabold text-slate-900">{roomSettings.pembagian_dikunci ? 'Pembagian ruangan sudah dikunci' : 'Pembagian ruangan belum dikunci'}</h3>
+                                <p className="mt-1 text-xs font-semibold leading-relaxed text-slate-600">
+                                    {roomSettings.pembagian_dikunci
+                                        ? `Ruang 1: ${roomSettings.jumlah_ruang_1} peserta · Ruang 2: ${roomSettings.jumlah_ruang_2} peserta. Pendaftar baru otomatis masuk Ruang 2.`
+                                        : `${roomSettings.belum_dibagi} peserta akan dibagi berurutan. Maksimal 25 peserta pertama masuk Ruang 1 dan sisanya masuk Ruang 2.`}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            )}
+
             {/* Ringkasan peserta */}
             <div className="flex items-center gap-3 rounded-2xl border border-purple-100 bg-white p-3 shadow-sm md:max-w-sm md:p-4">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-600 md:h-12 md:w-12 md:text-lg">
@@ -868,7 +924,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                 </span>
                 <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Jumlah Peserta</p>
-                    <p className="truncate text-sm font-bold text-slate-600">{currentCategoryName}</p>
+                    <p className="truncate text-sm font-bold text-slate-600">{currentCategoryName}{selectedJuriRoom ? ` · Ruang ${selectedJuriRoom}` : ''}</p>
                 </div>
                 <p className="text-3xl font-black leading-none text-slate-900">{stats.total}</p>
             </div>
@@ -928,8 +984,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                             const hasMyScore = Boolean(myScore);
                             const isComplete = peserta.status_nilai === 'Penilaian Lengkap';
                             const isWaiting = hasMyScore && !isComplete;
-                            const finalTotal = (peserta.nilai_juri as NilaiJuri[]).reduce((total, score) => total + Number(score.nilai_total), 0);
-                            const displayedScore = isAdmin && isComplete ? finalTotal : myScore?.nilai_total;
+                            const displayedScore = isAdmin && isComplete ? peserta.total_nilai : myScore?.nilai_total;
                             const displayedStatus = !hasMyScore
                                 ? 'Belum Anda nilai'
                                 : isComplete ? 'Penilaian Lengkap' : 'Menunggu juri lain';
@@ -1055,8 +1110,7 @@ export default function CategoryPenilaianPage({ params }: { params: Promise<{ ka
                                                 {(() => {
                                                     const myScore = (peserta.nilai_juri as NilaiJuri[]).find(score => score.juri_id === selectedJuriId);
                                                     const isComplete = peserta.status_nilai === 'Penilaian Lengkap';
-                                                    const finalTotal = (peserta.nilai_juri as NilaiJuri[]).reduce((total, score) => total + Number(score.nilai_total), 0);
-                                                    const displayedScore = isAdmin && isComplete ? finalTotal : myScore?.nilai_total;
+                                                    const displayedScore = isAdmin && isComplete ? peserta.total_nilai : myScore?.nilai_total;
                                                     if (displayedScore === null || displayedScore === undefined) {
                                                         return <span className="font-medium text-slate-400">-</span>;
                                                     }

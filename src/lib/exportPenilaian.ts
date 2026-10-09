@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { rankParticipantsByFinalScore } from './competitionRanking';
 
 type ExportCriterion = {
   id: string;
@@ -10,6 +11,7 @@ type ExportJudge = {
   id: string;
   kode: string;
   nama: string;
+  ruangan_mhq?: number | null;
 };
 
 type ExportScore = {
@@ -28,6 +30,7 @@ type ExportParticipant = {
   status_nilai: string;
   total_nilai: number | null;
   nilai_juri: ExportScore[];
+  ruangan_mhq?: number | null;
 };
 
 type ExportPenilaianOptions = {
@@ -57,38 +60,55 @@ export function exportPenilaianToExcel({ kategori, peserta, juri, kriteria }: Ex
   if (juri.length === 0) throw new Error('Daftar juri aktif tidak tersedia.');
 
   const workbook = XLSX.utils.book_new();
-  const rankedParticipants = [...peserta].sort((first, second) =>
-    (second.total_nilai ?? -1) - (first.total_nilai ?? -1)
-      || first.nomor_urut - second.nomor_urut
-  );
-  let currentRank = 0;
+  const isMhq = kategori.toLowerCase() === 'mhq';
+  const rankedParticipants = rankParticipantsByFinalScore(peserta);
 
-  const accumulationRows = rankedParticipants.map((participant) => {
+  const accumulationRows = rankedParticipants.map(({ participant, rank }) => {
     const row: Record<string, string | number> = {
-      Peringkat: participant.total_nilai === null ? '' : ++currentRank,
+      Peringkat: rank ?? '',
       'No. Urut': participant.nomor_urut,
       'Kode Peserta': safeText(participant.no_peserta),
       'Nama Peserta': safeText(participant.nama_lengkap),
       'Asal Sekolah': safeText(participant.asal),
     };
 
-    juri.forEach((judge) => {
-      const score = participant.nilai_juri.find((item) => item.juri_id === judge.id);
-      row[`Nilai ${judge.nama}`] = score?.nilai_total ?? '';
-    });
+    if (isMhq) {
+      row.Ruangan = participant.ruangan_mhq ? `Ruang ${participant.ruangan_mhq}` : 'Belum Dibagi';
+      const roomJudges = juri
+        .filter((judge) => judge.ruangan_mhq === participant.ruangan_mhq)
+        .sort((first, second) => first.kode.localeCompare(second.kode));
+      [0, 1].forEach((position) => {
+        const judge = roomJudges[position];
+        const score = judge
+          ? participant.nilai_juri.find((item) => item.juri_id === judge.id)
+          : undefined;
+        row[`Nama Juri ${position + 1}`] = safeText(judge?.nama || 'Belum ditetapkan');
+        row[`Nilai Juri ${position + 1}`] = score?.nilai_total ?? '';
+      });
+    } else {
+      juri.forEach((judge) => {
+        const score = participant.nilai_juri.find((item) => item.juri_id === judge.id);
+        row[`Nilai ${judge.nama}`] = score?.nilai_total ?? '';
+      });
+    }
 
     row['Status Penilaian'] = safeText(participant.status_nilai);
-    row['Nilai Akhir'] = participant.total_nilai ?? '';
+    row['Jumlah Nilai Akhir'] = participant.total_nilai ?? '';
     return row;
   });
 
   const accumulationSheet = XLSX.utils.json_to_sheet(accumulationRows);
-  applySheetLayout(accumulationSheet, [11, 10, 18, 30, 30, ...juri.map(() => 20), 28, 14]);
+  applySheetLayout(accumulationSheet, isMhq
+    ? [11, 10, 18, 30, 30, 13, 24, 14, 24, 14, 28, 18]
+    : [11, 10, 18, 30, 30, ...juri.map(() => 20), 28, 18]);
   XLSX.utils.book_append_sheet(workbook, accumulationSheet, 'Akumulasi');
 
   const participantsByNumber = [...peserta].sort((first, second) => first.nomor_urut - second.nomor_urut);
   juri.forEach((judge, judgeIndex) => {
-    const judgeRows = participantsByNumber.map((participant) => {
+    const assignedParticipants = isMhq
+      ? participantsByNumber.filter((participant) => participant.ruangan_mhq === judge.ruangan_mhq)
+      : participantsByNumber;
+    const judgeRows = assignedParticipants.map((participant) => {
       const score = participant.nilai_juri.find((item) => item.juri_id === judge.id);
       const row: Record<string, string | number> = {
         'No. Urut': participant.nomor_urut,
@@ -96,6 +116,7 @@ export function exportPenilaianToExcel({ kategori, peserta, juri, kriteria }: Ex
         'Nama Peserta': safeText(participant.nama_lengkap),
         'Asal Sekolah': safeText(participant.asal),
       };
+      if (isMhq) row.Ruangan = participant.ruangan_mhq ? `Ruang ${participant.ruangan_mhq}` : 'Belum Dibagi';
 
       kriteria.forEach((criterion) => {
         row[`${criterion.label} (${criterion.weight}%)`] = score?.detail_nilai?.[criterion.id] ?? '';
@@ -108,7 +129,7 @@ export function exportPenilaianToExcel({ kategori, peserta, juri, kriteria }: Ex
     });
 
     const judgeSheet = XLSX.utils.json_to_sheet(judgeRows);
-    applySheetLayout(judgeSheet, [10, 18, 30, 30, ...kriteria.map(() => 30), 14, 36, 16]);
+    applySheetLayout(judgeSheet, [10, 18, 30, 30, ...(isMhq ? [13] : []), ...kriteria.map(() => 30), 14, 36, 16]);
     const sheetName = safeSheetName(`${judge.kode} - ${judge.nama}`, `Juri ${judgeIndex + 1}`);
     XLSX.utils.book_append_sheet(workbook, judgeSheet, sheetName);
   });

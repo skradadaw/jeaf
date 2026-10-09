@@ -17,7 +17,9 @@ Jalankan berurutan:
 5. `supabase_penilaian_four_categories_fix.sql`
 6. `supabase_remove_draft_lock.sql`
 7. `supabase_penilaian_performance.sql`
-8. Buat dan hubungkan akun juri mengikuti `JURI_LOGIN_SETUP.md`.
+8. `supabase_mhq_ruangan.sql`
+9. Buat dan hubungkan akun juri mengikuti `JURI_LOGIN_SETUP.md`.
+10. `supabase_verify_mhq_release.sql`
 
 `supabase_schema.sql` sudah memuat tabel dasar, storage peserta, sistem multi-juri, empat juri MHQ, dan dua juri untuk cabang lainnya. Karena itu, jangan menjalankan `supabase_multi_juri_migration.sql` atau `supabase_update_juri_mhq.sql` pada jalur ini.
 
@@ -33,7 +35,9 @@ Jalankan berurutan:
 6. `supabase_penilaian_four_categories_fix.sql`
 7. `supabase_remove_draft_lock.sql`
 8. `supabase_penilaian_performance.sql`
-9. Buat dan hubungkan akun juri mengikuti `JURI_LOGIN_SETUP.md`.
+9. `supabase_mhq_ruangan.sql`
+10. Buat dan hubungkan akun juri mengikuti `JURI_LOGIN_SETUP.md`.
+11. `supabase_verify_mhq_release.sql`
 
 Jika database lama masih mempunyai dua juri MHQ, jalankan `supabase_update_juri_mhq.sql` setelah langkah 2. Skrip ini idempoten dan hanya menambahkan `MHQ-J3` serta `MHQ-J4` jika belum ada.
 
@@ -50,6 +54,13 @@ Jika database lama masih mempunyai dua juri MHQ, jalankan `supabase_update_juri_
 | `supabase_penilaian_four_categories_fix.sql` | Membatasi portal juri ke empat kategori, memperbaiki ringkasan, audit, dan locking | Setelah hardening |
 | `supabase_remove_draft_lock.sql` | Menjadikan setiap simpan sebagai nilai final yang tetap dapat diedit | Langkah migrasi utama terakhir |
 | `supabase_penilaian_performance.sql` | Menambah RPC dashboard, pembaruan per peserta, indeks, dan Broadcast privat | Setelah migrasi penghapusan draft |
+| `supabase_mhq_ruangan.sql` | Migrasi kanonis: pembagian 25 peserta, penguncian ruangan, dua juri per ruang, RPC, dan rekalkulasi SUM | Jalankan paling akhir; aman dijalankan ulang |
+| `supabase_verify_mhq_release.sql` | Memeriksa versi, kolom, trigger, dua juri per ruang, nilai lintas ruang, akun, dan konsistensi SUM | Jalankan setelah migrasi kanonis pada setiap environment |
+| `supabase_fix_mhq_edit_room.sql` | Hotfix historis untuk edit peserta | Tidak diperlukan setelah migrasi kanonis terbaru |
+| `supabase_fix_mhq_lock_rooms.sql` | Hotfix historis untuk penguncian ruangan | Tidak diperlukan setelah migrasi kanonis terbaru |
+| `supabase_fix_mhq_two_judges.sql` | Hotfix historis untuk tepat dua juri aktif | Tidak diperlukan setelah migrasi kanonis terbaru |
+| `supabase_fix_mhq_legacy_sum.sql` | Hotfix historis untuk rekalkulasi SUM sadar ruangan | Tidak diperlukan setelah migrasi kanonis terbaru |
+| `supabase_test_mhq_scoring_flow.sql` | Menguji alur 1/2, 2/2, edit SUM, dan penolakan juri lintas ruangan lalu membatalkan semua data uji | Verifikasi opsional setelah seluruh hotfix MHQ |
 | `supabase_reset_penilaian.sql` | Mereset seluruh nilai juri, log audit, dan mengosongkan nilai peserta | Kapan pun ingin mereset penilaian dari nol |
 | `supabase_fix_validasi_record_k.sql` | Hotfix historis untuk error `record "k" is not assigned yet` | Hanya instalasi lama yang belum menjalankan dua migrasi terakhir |
 
@@ -57,6 +68,9 @@ Jika database lama masih mempunyai dua juri MHQ, jalankan `supabase_update_juri_
 
 - `supabase_fix_validasi_record_k.sql` dipertahankan untuk pemulihan instalasi lama. Fungsi validasinya akan digantikan oleh `supabase_penilaian_four_categories_fix.sql` dan `supabase_remove_draft_lock.sql`.
 - `supabase_update_juri_mhq.sql` tidak diperlukan jika bootstrap atau migrasi multi-juri terbaru sudah menghasilkan empat juri MHQ.
+- Empat file `supabase_fix_mhq_*.sql` dipertahankan sebagai riwayat hotfix. Instalasi baru cukup menjalankan `supabase_mhq_ruangan.sql` karena kondisi akhirnya sudah digabungkan ke file tersebut.
+
+Database lama yang sudah menjalankan hotfix boleh menjalankan kembali `supabase_mhq_ruangan.sql`. Pembagian yang sudah dikunci tidak diulang. Setelah itu jalankan `supabase_verify_mhq_release.sql`; seluruh baris harus bernilai `true` dan status akhir harus `LULUS`.
 
 ## Verifikasi setelah migrasi
 
@@ -118,6 +132,10 @@ WHERE table_schema = 'public'
 ```
 
 Setelah `supabase_remove_draft_lock.sql`, nilai default yang diharapkan adalah `'final'::text`.
+
+### Uji transaksi penilaian MHQ
+
+Jalankan `supabase_test_mhq_scoring_flow.sql` setelah seluruh hotfix MHQ. Hasil yang benar menampilkan pesan `LULUS` dan diakhiri `ROLLBACK`. Skrip tidak menyimpan nilai atau audit pengujian. Skrip akan berhenti sebelum menulis jika tidak tersedia satu peserta tanpa nilai di setiap ruangan.
 
 ## Catatan keamanan
 

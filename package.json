@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "setup:juri": "node scripts/setup-juri-accounts.mjs"
+    "setup:juri": "node scripts/setup-juri-accounts.mjs",
+    "replace:juri-mhq": "node scripts/replace-mhq-jury.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

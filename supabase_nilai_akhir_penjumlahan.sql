@@ -74,6 +74,7 @@ WITH score_summary AS (
   FROM public.pendaftar AS p
   LEFT JOIN public.juri_kategori AS jk ON jk.cabang_lomba = p.cabang_lomba
   LEFT JOIN public.juri AS j ON j.id = jk.juri_id AND j.aktif
+    AND (p.cabang_lomba <> 'MHQ' OR j.ruangan_mhq = p.ruangan_mhq)
   LEFT JOIN public.penilaian_juri AS pj
     ON pj.pendaftar_id = p.id
    AND pj.juri_id = j.id
@@ -101,6 +102,8 @@ SELECT
   p.nilai_total = SUM(pj.nilai_total)::INTEGER AS sesuai
 FROM public.pendaftar AS p
 JOIN public.penilaian_juri AS pj ON pj.pendaftar_id = p.id
+JOIN public.juri AS j ON j.id = pj.juri_id
+  AND (p.cabang_lomba <> 'MHQ' OR j.ruangan_mhq = p.ruangan_mhq)
 WHERE p.nilai_total IS NOT NULL
 GROUP BY p.id, p.no_peserta, p.nama_anak, p.cabang_lomba, p.nilai_total
 ORDER BY p.cabang_lomba, p.no_peserta;
