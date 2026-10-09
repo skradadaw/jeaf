@@ -95,6 +95,33 @@ body {
   scrollbar-width: none;
 }
 
+/* Live attendance mobile list: keep cards breathable and actions easy to tap. */
+@media (max-width: 767px) {
+  .mobile-attendance-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 12px;
+    background: #f1f5f9;
+  }
+
+  .mobile-attendance-tabs [role="tab"] {
+    min-width: 0;
+    width: 100%;
+    white-space: nowrap;
+    min-height: 48px;
+    border-radius: 8px;
+  }
+
+  .mobile-attendance-list article button[role="switch"] {
+    min-height: 44px;
+    min-width: 132px;
+    touch-action: manipulation;
+  }
+}
+
 /* Tunda indikator navigasi agar perpindahan instan tidak menampilkan spinner sekilas. */
 .route-loading-indicator {
   opacity: 0;

@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import DashboardCard from '@/components/DashboardCard';
 import { supabase } from '@/lib/supabase';
@@ -18,7 +18,7 @@ type Registration = {
   waktu_kehadiran: string | null;
 };
 
-type AttendanceFilter = 'hadir' | 'belum' | 'semua';
+type AttendanceFilter = 'hadir' | 'belum';
 
 type AttendanceToggleProps = {
   participantName: string;
@@ -39,17 +39,17 @@ const AttendanceToggle = ({ participantName, isPresent, isPending, onToggle }: A
       disabled={isPending}
       onClick={onToggle}
       whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
-      className={`relative inline-flex h-9 min-w-28 items-center rounded-full border px-1 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-70 ${isPresent ? 'border-emerald-600 bg-emerald-500 text-white' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}`}
+      className={`relative inline-flex h-10 min-w-[7.25rem] items-center rounded-full border px-1 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-70 ${isPresent ? 'border-emerald-600 bg-emerald-500 text-white' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}`}
     >
       <motion.span
         initial={false}
-        animate={{ x: isPresent ? 72 : 0, scale: isPending ? 0.9 : 1 }}
+        animate={{ x: isPresent ? 76 : 0, scale: isPending ? 0.9 : 1 }}
         transition={shouldReduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 32 }}
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full shadow-sm ${isPresent ? 'bg-white text-emerald-600' : 'bg-slate-100 text-slate-500'}`}
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full shadow-sm ${isPresent ? 'bg-white text-emerald-600' : 'bg-slate-100 text-slate-500'}`}
       >
         <i className={`fa-solid ${isPending ? 'fa-circle-notch fa-spin' : isPresent ? 'fa-check' : 'fa-minus'} text-[10px]`} aria-hidden="true"></i>
       </motion.span>
-      <span className={`absolute text-[10px] font-extrabold ${isPresent ? 'left-3' : 'right-3'}`}>
+      <span className={`absolute text-[11px] font-bold ${isPresent ? 'left-3' : 'right-3'}`}>
         {isPending ? 'Menyimpan' : isPresent ? 'Hadir' : 'Belum'}
       </span>
     </motion.button>
@@ -79,37 +79,39 @@ const formatAttendanceTime = (value: string | null) => {
   };
 };
 
+const PAGE_SIZE = 25;
+
 export default function LiveAttendancePage() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [databaseError, setDatabaseError] = useState('');
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [filter, setFilter] = useState<AttendanceFilter>('hadir');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [updatingAttendanceIds, setUpdatingAttendanceIds] = useState<Set<string>>(() => new Set());
   const [animatingAttendanceRows, setAnimatingAttendanceRows] = useState<Record<string, AttendanceFilter>>({});
   const animationTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const shouldReduceMotion = useReducedMotion();
 
+  const fetchRegistrations = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('pendaftar')
+      .select('id, created_at, no_peserta, nama_anak, asal_sekolah, cabang_lomba, status_kehadiran, waktu_kehadiran')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      setDatabaseError('Data absensi gagal dimuat: ' + error.message);
+    } else {
+      setRegistrations((data || []) as Registration[]);
+      setDatabaseError('');
+    }
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
-    let active = true;
-
-    const fetchRegistrations = async () => {
-      const { data, error } = await supabase
-        .from('pendaftar')
-        .select('id, created_at, no_peserta, nama_anak, asal_sekolah, cabang_lomba, status_kehadiran, waktu_kehadiran')
-        .order('created_at', { ascending: false });
-
-      if (!active) return;
-      if (error) {
-        setDatabaseError('Data absensi gagal dimuat: ' + error.message);
-      } else {
-        setRegistrations((data || []) as Registration[]);
-        setDatabaseError('');
-      }
-      setLoading(false);
-    };
-
     void fetchRegistrations();
 
     const channel = supabase
@@ -126,25 +128,31 @@ export default function LiveAttendancePage() {
 
           const changed = payload.new as Registration;
           setRegistrations((current) => {
-            const exists = current.some((registration) => registration.id === changed.id);
-            return exists
-              ? current.map((registration) => registration.id === changed.id ? changed : registration)
-              : [changed, ...current];
+            const index = current.findIndex((registration) => registration.id === changed.id);
+            if (index === -1) return [changed, ...current];
+            if (current[index] === changed) return current;
+            const next = current.slice();
+            next[index] = changed;
+            return next;
           });
         }
       )
       .subscribe((status) => setIsRealtimeConnected(status === 'SUBSCRIBED'));
 
     return () => {
-      active = false;
       void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchRegistrations]);
 
   useEffect(() => () => {
     animationTimersRef.current.forEach((timer) => clearTimeout(timer));
     animationTimersRef.current.clear();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const toggleAttendance = async (registration: Registration) => {
     if (updatingAttendanceIds.has(registration.id)) return;
@@ -205,19 +213,21 @@ export default function LiveAttendancePage() {
     });
   };
 
-  const presentCount = registrations.filter((registration) => registration.status_kehadiran === 'Hadir').length;
-  const absentCount = registrations.length - presentCount;
-  const attendancePercentage = registrations.length > 0
-    ? Number(((presentCount / registrations.length) * 100).toFixed(1))
-    : 0;
+  const { presentCount, absentCount, attendancePercentage } = useMemo(() => {
+    const present = registrations.reduce((count, registration) => count + Number(registration.status_kehadiran === 'Hadir'), 0);
+    return {
+      presentCount: present,
+      absentCount: registrations.length - present,
+      attendancePercentage: registrations.length ? Number(((present / registrations.length) * 100).toFixed(1)) : 0,
+    };
+  }, [registrations]);
 
   const filteredRegistrations = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase('id-ID');
+    const normalizedQuery = debouncedQuery.toLocaleLowerCase('id-ID');
     return registrations
       .filter((registration) => {
         const isPresent = registration.status_kehadiran === 'Hadir';
-        const matchesStatus = filter === 'semua'
-          || (filter === 'hadir' && isPresent)
+        const matchesStatus = (filter === 'hadir' && isPresent)
           || (filter === 'belum' && !isPresent)
           || animatingAttendanceRows[registration.id] === filter;
         const matchesQuery = !normalizedQuery
@@ -236,36 +246,45 @@ export default function LiveAttendancePage() {
         }
         return (first.no_peserta || '').localeCompare(second.no_peserta || '', 'id', { numeric: true });
       });
-  }, [animatingAttendanceRows, filter, query, registrations]);
+  }, [animatingAttendanceRows, debouncedQuery, filter, registrations]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRegistrations.length / PAGE_SIZE));
+  const visibleRegistrations = useMemo(
+    () => filteredRegistrations.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [currentPage, filteredRegistrations]
+  );
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, debouncedQuery]);
 
   const filterOptions: Array<{ value: AttendanceFilter; label: string; count: number }> = [
     { value: 'hadir', label: 'Sudah Hadir', count: presentCount },
     { value: 'belum', label: 'Belum Hadir', count: absentCount },
-    { value: 'semua', label: 'Semua Peserta', count: registrations.length },
   ];
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 p-5 text-white shadow-lg shadow-emerald-500/15 sm:p-7">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-100">
-              <span className={`h-2.5 w-2.5 rounded-full ${isRealtimeConnected ? 'bg-lime-300 shadow-[0_0_0_5px_rgba(190,242,100,0.16)]' : 'bg-amber-300'}`}></span>
-              <span aria-live="polite">{isRealtimeConnected ? 'Pembaruan real-time aktif' : 'Menghubungkan real-time'}</span>
-            </div>
-            <h2 className="text-2xl font-black tracking-tight sm:text-3xl">Live Absensi Peserta</h2>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-emerald-50/90">
-              Pantau peserta yang sudah melakukan check-in secara langsung dari meja registrasi.
-            </p>
+    <div className="space-y-5 pb-4 sm:space-y-6">
+      <section className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-500">
+            <span className={`h-2 w-2 rounded-full ${isRealtimeConnected ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
+            <span aria-live="polite">{isRealtimeConnected ? 'Terhubung secara langsung' : 'Menghubungkan...'}</span>
           </div>
-          <Link
+          <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">Absensi Peserta</h2>
+          <p className="mt-1 text-sm text-slate-500">Pantau kehadiran JinGa Festival 2026.</p>
+        </div>
+        <Link
             href="/panitia/scan"
-            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-extrabold text-emerald-700 shadow-md transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200"
           >
             <i className="fa-solid fa-qrcode" aria-hidden="true"></i>
             Buka Scanner
-          </Link>
-        </div>
+        </Link>
       </section>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4" aria-label="Ringkasan absensi">
@@ -276,9 +295,20 @@ export default function LiveAttendancePage() {
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 p-4 sm:p-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Filter kehadiran">
+        <div className="space-y-3 border-b border-slate-100 p-3 sm:p-5">
+          <label className="relative block w-full">
+            <span className="sr-only">Cari peserta</span>
+            <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400" aria-hidden="true"></i>
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Cari nama, kode, atau sekolah..."
+              className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+            />
+          </label>
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="mobile-attendance-tabs grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Filter kehadiran">
               {filterOptions.map((option) => (
                 <button
                   key={option.value}
@@ -286,25 +316,14 @@ export default function LiveAttendancePage() {
                   role="tab"
                   aria-selected={filter === option.value}
                   onClick={() => setFilter(option.value)}
-                  className={`min-h-11 shrink-0 rounded-xl px-3.5 py-2 text-xs font-extrabold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${filter === option.value ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  className={`flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-lg px-2 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 sm:text-sm ${filter === option.value ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                 >
-                  {option.label}
-                  <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] ${filter === option.value ? 'bg-white/20 text-white' : 'bg-white text-slate-500'}`}>{option.count}</span>
+                  <span className="truncate">{option.label}</span>
+                  <span className={`inline-flex min-w-7 shrink-0 items-center justify-center rounded-full px-2 py-1 text-[11px] font-bold leading-none tabular-nums ${filter === option.value ? 'bg-emerald-50 text-emerald-700' : 'bg-white text-slate-500'}`}>{option.count}</span>
                 </button>
               ))}
             </div>
 
-            <label className="relative block w-full xl:max-w-sm">
-              <span className="sr-only">Cari peserta</span>
-              <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400" aria-hidden="true"></i>
-              <input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Cari nama, kode, atau sekolah..."
-                className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-              />
-            </label>
           </div>
         </div>
 
@@ -328,44 +347,33 @@ export default function LiveAttendancePage() {
           </div>
         ) : (
           <>
-            <div className="divide-y divide-slate-100 md:hidden">
-              <AnimatePresence initial={false} mode="popLayout">
-                {filteredRegistrations.map((registration) => {
+            <div className="mobile-attendance-list space-y-2 bg-slate-50 p-2.5 md:hidden sm:p-4">
+              {visibleRegistrations.map((registration) => {
                   const isPresent = registration.status_kehadiran === 'Hadir';
-                  const isAnimating = registration.id in animatingAttendanceRows;
                   const attendanceTime = formatAttendanceTime(registration.waktu_kehadiran);
                   return (
-                  <motion.article
+                  <article
                     key={registration.id}
-                    layout="position"
-                    initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                      backgroundColor: isAnimating ? 'rgba(209, 250, 229, 0.72)' : 'rgba(255, 255, 255, 0)',
-                    }}
-                    exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 28 }}
-                    transition={shouldReduceMotion ? { duration: 0 } : {
-                      layout: { type: 'spring', stiffness: 420, damping: 34 },
-                      opacity: { duration: 0.2 },
-                      x: { duration: 0.2 },
-                      y: { duration: 0.2 },
-                      backgroundColor: { duration: 0.35 },
-                    }}
-                    className="p-4"
+                    className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-[0_1px_3px_rgba(15,23,42,0.05)] sm:p-4"
                   >
                     <div className="flex items-start gap-3">
-                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isPresent ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm ${isPresent ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                         <i className={`fa-solid ${isPresent ? 'fa-check' : 'fa-clock'}`} aria-hidden="true"></i>
                       </span>
                       <div className="min-w-0 flex-1">
-                        <h3 className="truncate text-sm font-extrabold text-slate-900">{registration.nama_anak}</h3>
-                        <p className="mt-0.5 truncate font-mono text-[11px] font-semibold text-slate-500">{registration.no_peserta || registration.id.split('-')[0].toUpperCase()}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <span className={`rounded-full border px-2 py-1 text-[9px] font-extrabold ${getCategoryStyle(registration.cabang_lomba)}`}>{registration.cabang_lomba}</span>
-                          <span className={`rounded-full px-2 py-1 text-[9px] font-extrabold ${isPresent ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{isPresent ? 'Sudah Hadir' : 'Belum Hadir'}</span>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h3 className="truncate text-sm font-bold leading-5 text-slate-900 sm:text-[15px]">{registration.nama_anak}</h3>
+                            <p className="mt-1 truncate text-xs font-medium text-slate-500" title={registration.asal_sekolah}><i className="fa-solid fa-school mr-1 text-[10px] text-slate-400" aria-hidden="true"></i>{registration.asal_sekolah}</p>
+                            <p className="mt-1 truncate font-mono text-[11px] font-medium text-slate-500">{registration.no_peserta || registration.id.split('-')[0].toUpperCase()}</p>
+                          </div>
+                          <time className="shrink-0 text-right" dateTime={registration.waktu_kehadiran || undefined}><span className="block text-xs font-extrabold tabular-nums text-slate-700">{isPresent ? attendanceTime.time : '--:--'}</span><span className="mt-0.5 block text-[9px] font-medium text-slate-400">{isPresent ? attendanceTime.date : 'Belum check-in'}</span></time>
                         </div>
-                        <div className="mt-3">
+                        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${getCategoryStyle(registration.cabang_lomba)}`}>{registration.cabang_lomba}</span>
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${isPresent ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}><span className={`h-1.5 w-1.5 rounded-full ${isPresent ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>{isPresent ? 'Sudah Hadir' : 'Belum Hadir'}</span>
+                        </div>
+                        <div className="mt-2.5 flex justify-end border-t border-slate-100 pt-2.5">
                           <AttendanceToggle
                             participantName={registration.nama_anak}
                             isPresent={isPresent}
@@ -374,12 +382,10 @@ export default function LiveAttendancePage() {
                           />
                         </div>
                       </div>
-                      {isPresent && <time className="shrink-0 text-right text-[10px] font-bold text-slate-500" dateTime={registration.waktu_kehadiran || undefined}>{attendanceTime.time}<span className="mt-1 block text-[9px] font-medium text-slate-400">{attendanceTime.date}</span></time>}
                     </div>
-                  </motion.article>
+                  </article>
                   );
-                })}
-              </AnimatePresence>
+              })}
             </div>
 
             <div className="hidden overflow-x-auto md:block">
@@ -395,28 +401,12 @@ export default function LiveAttendancePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  <AnimatePresence initial={false} mode="popLayout">
-                    {filteredRegistrations.map((registration) => {
+                  {visibleRegistrations.map((registration) => {
                       const isPresent = registration.status_kehadiran === 'Hadir';
-                      const isAnimating = registration.id in animatingAttendanceRows;
                       const attendanceTime = formatAttendanceTime(registration.waktu_kehadiran);
                       return (
-                      <motion.tr
+                      <tr
                         key={registration.id}
-                        layout="position"
-                        initial={shouldReduceMotion ? false : { opacity: 0, x: -12 }}
-                        animate={{
-                          opacity: 1,
-                          x: 0,
-                          backgroundColor: isAnimating ? 'rgba(209, 250, 229, 0.72)' : 'rgba(255, 255, 255, 0)',
-                        }}
-                        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 28 }}
-                        transition={shouldReduceMotion ? { duration: 0 } : {
-                          layout: { type: 'spring', stiffness: 420, damping: 34 },
-                          opacity: { duration: 0.2 },
-                          x: { duration: 0.2 },
-                          backgroundColor: { duration: 0.35 },
-                        }}
                         className="hover:bg-slate-50/70"
                       >
                         <td className="px-5 py-3.5">
@@ -449,16 +439,28 @@ export default function LiveAttendancePage() {
                         <td className="px-5 py-3.5 text-right">
                           {isPresent ? <time dateTime={registration.waktu_kehadiran || undefined}><span className="block text-xs font-extrabold text-slate-700">{attendanceTime.time}</span><span className="mt-0.5 block text-[10px] font-medium text-slate-400">{attendanceTime.date}</span></time> : <span className="text-xs font-semibold text-slate-300">—</span>}
                         </td>
-                      </motion.tr>
+                      </tr>
                       );
-                    })}
-                  </AnimatePresence>
+                  })}
                 </tbody>
               </table>
             </div>
 
             <footer className="border-t border-slate-100 bg-slate-50/70 px-4 py-3 text-xs font-semibold text-slate-500 sm:px-5">
-              Menampilkan {filteredRegistrations.length} dari {registrations.length} peserta
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span>Menampilkan {filteredRegistrations.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0}-{Math.min(currentPage * PAGE_SIZE, filteredRegistrations.length)} dari {filteredRegistrations.length} peserta</span>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1} className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40" aria-label="Halaman sebelumnya">
+                      <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true"></i>
+                    </button>
+                    <span className="tabular-nums">{currentPage} / {totalPages}</span>
+                    <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages} className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40" aria-label="Halaman berikutnya">
+                      <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                )}
+              </div>
             </footer>
           </>
         )}
