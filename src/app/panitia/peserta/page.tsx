@@ -174,8 +174,10 @@ export default function DataPesertaPage() {
     setIsModalOpen(true);
   };
 
-  const handleUpdateSuccess = (updatedData: any) => {
-    setRegistrations(prev => prev.map(r => r.id === updatedData.id ? { ...r, ...updatedData } : r));
+  const handleUpdateSuccess = async (updatedData: any) => {
+    // Reload from Supabase so trigger-adjusted fields and the new branch are
+    // reflected in the table instead of retaining the pre-edit row state.
+    await fetchRegistrations();
     setSelectedPeserta(updatedData);
   };
 

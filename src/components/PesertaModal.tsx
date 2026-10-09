@@ -153,18 +153,28 @@ export default function PesertaModal({ isOpen, onClose, peserta, onUpdateSuccess
       updatePayload.catatan_juri = null;
     }
 
-    const { error } = await supabase
+    const { data: updatedRows, error } = await supabase
       .from('pendaftar')
       .update(updatePayload)
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
 
     setIsSaving(false);
 
-    if (error) {
+    if (error || !updatedRows || updatedRows.length !== 1) {
       console.error('Error updating data:', error);
-      toast.error(`Gagal menyimpan perubahan: ${error.message}`);
+      toast.error(error
+        ? `Gagal menyimpan perubahan: ${error.message}`
+        : 'Gagal menyimpan perubahan: akun ini tidak memiliki izin mengubah data peserta.');
     } else {
-      const finalData = { ...formData, ...updatePayload };
+      // Read the saved row separately. This avoids relying on UPDATE ...
+      // RETURNING, which may be restricted by RLS or affected by triggers.
+      const { data: savedData } = await supabase
+        .from('pendaftar')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      const finalData = savedData || { ...formData, ...updatePayload };
       if (isCabangChanged) {
         toast.success(
           `Cabang lomba diubah ke ${cabang_lomba}!\nNomor peserta baru: ${newNoPeserta}`,
